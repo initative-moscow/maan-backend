@@ -1,6 +1,8 @@
 [package]
-name = "web"
+name = "maan-web"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+actix-web = "4.9.0"
+maan-core = { path = "../core" }
