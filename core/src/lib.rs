@@ -1,6 +1,7 @@
 mod client;
 mod signer;
-mod utils;
 pub mod tochka;
+mod utils;
 
-use signer::Signer;
+pub use client::MaanClient;
+pub use signer::Signer;

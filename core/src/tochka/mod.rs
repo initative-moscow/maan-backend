@@ -19,7 +19,7 @@ pub struct TochkaApiResponse<T> {
     pub jsonrpc: String,
     pub id: String,
     #[serde(flatten)]
-    pub payload: TochkaApiResponsePayload<T>
+    pub payload: TochkaApiResponsePayload<T>,
 }
 
 /// Tochka API response payload, which is either an "error" or a "result".
@@ -44,7 +44,7 @@ mod tests {
 
     #[test]
     fn test_serde_json_request() {
-        use create_beneficiary::{CreateBeneficiaryUlRequest, BeneficiaryData};
+        use create_beneficiary::{BeneficiaryData, CreateBeneficiaryUlRequest};
         let inn = "1234567890";
         let acc_code = "1234567890";
         let bic = "1234567890";
@@ -80,9 +80,13 @@ mod tests {
             },
         };
 
-        let actual: TochkaApiRequest<CreateBeneficiaryUlRequest> = serde_json::from_value(json.clone()).expect("failed to parse json");
+        let actual: TochkaApiRequest<CreateBeneficiaryUlRequest> =
+            serde_json::from_value(json.clone()).expect("failed to parse json");
         assert_eq!(actual, expected);
-        assert_eq!(serde_json::to_value(expected).expect("failed to serialize to string"), json);
+        assert_eq!(
+            serde_json::to_value(expected).expect("failed to serialize to string"),
+            json
+        );
     }
 
     #[test]
@@ -101,13 +105,17 @@ mod tests {
                 error: TochkaError {
                     code: 1,
                     message: "message".to_string(),
-                }
-            }
+                },
+            },
         };
 
-        let actual: TochkaApiResponse<()> = serde_json::from_value(json.clone()).expect("failed to parse json");
+        let actual: TochkaApiResponse<()> =
+            serde_json::from_value(json.clone()).expect("failed to parse json");
         assert_eq!(actual, expected);
-        assert_eq!(serde_json::to_value(expected).expect("failed to serialize to string"), json);
+        assert_eq!(
+            serde_json::to_value(expected).expect("failed to serialize to string"),
+            json
+        );
 
         // Result response
         let json = serde_json::json!({
@@ -117,18 +125,24 @@ mod tests {
         });
 
         #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-        struct Value { value: u64 };
+        struct Value {
+            value: u64,
+        };
 
         let expected = TochkaApiResponse {
             jsonrpc: "2.0".to_string(),
             id: "123".to_string(),
             payload: TochkaApiResponsePayload::Result {
-                result: Value { value: 42 }
-            }
+                result: Value { value: 42 },
+            },
         };
 
-        let actual: TochkaApiResponse<Value> = serde_json::from_value(json.clone()).expect("failed to parse json");
+        let actual: TochkaApiResponse<Value> =
+            serde_json::from_value(json.clone()).expect("failed to parse json");
         assert_eq!(actual, expected);
-        assert_eq!(serde_json::to_value(expected).expect("failed to serialize to string"), json);
+        assert_eq!(
+            serde_json::to_value(expected).expect("failed to serialize to string"),
+            json
+        );
     }
 }

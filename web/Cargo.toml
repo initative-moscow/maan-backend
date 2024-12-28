@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.9.0"
+tokio = { version = "1.42.0", features = ["full"] }
 maan-core = { path = "../core" }

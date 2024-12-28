@@ -13,7 +13,6 @@ pub struct CreateBeneficiaryResponse {
     pub nominal_account_bic: String,
 }
 
-
 /// Create beneficiary ul request.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CreateBeneficiaryUlRequest {
@@ -63,13 +62,14 @@ mod tests {
                 "kpp": kpp,
             },
         });
-        let actual_request: CreateBeneficiaryUlRequest = serde_json::from_value(json_request.clone()).expect("failed to parse json");
+        let actual_request: CreateBeneficiaryUlRequest =
+            serde_json::from_value(json_request.clone()).expect("failed to parse json");
         assert_eq!(expected_request, actual_request);
-        
-        let actual_request = serde_json::to_value(expected_request.clone()).expect("failed to serialize json");
+
+        let actual_request =
+            serde_json::to_value(expected_request.clone()).expect("failed to serialize json");
         assert_eq!(json_request, actual_request);
-        
-        
+
         let json_response = serde_json::json!({
             "inn": inn,
             "id": "1234567890",
