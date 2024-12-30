@@ -2,15 +2,15 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Create beneficiary response.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename = "beneficiary")]
-pub struct CreateBeneficiaryResponse {
-    // TODO: Create Inn type with validation
-    pub inn: String,
-    pub id: String,
-    pub nominal_account_code: String,
-    pub nominal_account_bic: String,
+pub enum CreateBeneficiaryResponse {
+    #[serde(rename = "beneficiary")]
+    Beneficiary {
+        inn: String,
+        nominal_account_code: String,
+        nominal_account_bic: String,
+        id: String,
+    },
 }
 
 /// Create beneficiary ul request.

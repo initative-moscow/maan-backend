@@ -13,13 +13,13 @@ const PUBLIC_KEY: &str = r#"-----BEGIN PUBLIC KEY-----
 -----END PUBLIC KEY-----
 "#;
 
-pub(crate) struct Signer {
+pub struct Signer {
     private_key: RsaPrivateKey,
     public_key: RsaPublicKey,
 }
 
 impl Signer {
-    pub(crate) fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let private_key = RsaPrivateKey::from_pkcs8_pem(PRIVATE_KEY)?;
         let public_key = private_key.to_public_key();
 
@@ -29,7 +29,7 @@ impl Signer {
         })
     }
 
-    pub(crate) fn sign_raw_data(&self, data: impl AsRef<[u8]>) -> Result<Vec<u8>> {
+    pub fn sign_raw_data(&self, data: impl AsRef<[u8]>) -> Result<Vec<u8>> {
         let digest = Sha256::digest(data.as_ref());
 
         self.private_key
@@ -37,7 +37,7 @@ impl Signer {
             .map_err(Into::into)
     }
 
-    pub(crate) fn verify_raw_data(
+    pub fn verify_raw_data(
         &self,
         signature: impl AsRef<[u8]>,
         data: impl AsRef<[u8]>,

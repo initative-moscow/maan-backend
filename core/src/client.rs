@@ -100,7 +100,11 @@ mod tests {
             .try_init();
 
         let signer = Signer::new().expect("failed signer creation");
-        let maan_client = MaanClient::new(PLATFORM_ID.to_string(), CERT_THUMBPRINT.to_string());
+        let maan_client = MaanClient::new(
+            PLATFORM_ID.to_string(),
+            CERT_THUMBPRINT.to_string(),
+            "https://pre.tochka.com/api/v1/cyclops/v2/jsonrpc".to_string(),
+        );
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "id": utils::new_uuid_v4().to_string(),

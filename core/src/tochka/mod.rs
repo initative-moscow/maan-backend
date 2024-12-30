@@ -41,10 +41,12 @@ pub struct TochkaError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tochka::create_beneficiary::{
+        BeneficiaryData, CreateBeneficiaryResponse, CreateBeneficiaryUlRequest,
+    };
 
     #[test]
     fn test_serde_json_request() {
-        use create_beneficiary::{BeneficiaryData, CreateBeneficiaryUlRequest};
         let inn = "1234567890";
         let acc_code = "1234567890";
         let bic = "1234567890";
@@ -140,6 +142,40 @@ mod tests {
         let actual: TochkaApiResponse<Value> =
             serde_json::from_value(json.clone()).expect("failed to parse json");
         assert_eq!(actual, expected);
+        assert_eq!(
+            serde_json::to_value(expected).expect("failed to serialize to string"),
+            json
+        );
+
+        // Real type response
+        let json = serde_json::json!({
+            "jsonrpc": "2.0",
+            "result": {
+                "beneficiary": {
+                    "inn": "7925930371",
+                    "id": "4242",
+                    "nominal_account_code": "000000000000000000000",
+                    "nominal_account_bic": "0000000000",
+                }
+            },
+            "id": "42"
+        });
+        let expected = TochkaApiResponse {
+            jsonrpc: "2.0".to_string(),
+            id: "42".to_string(),
+            payload: TochkaApiResponsePayload::Result {
+                result: CreateBeneficiaryResponse::Beneficiary {
+                    inn: "7925930371".to_string(),
+                    id: "4242".to_string(),
+                    nominal_account_code: "000000000000000000000".to_string(),
+                    nominal_account_bic: "0000000000".to_string(),
+                },
+            },
+        };
+        println!("{:#?}", serde_json::to_value(&expected).unwrap());
+        let actual: TochkaApiResponse<CreateBeneficiaryResponse> =
+            serde_json::from_value(json.clone()).expect("failed to parse json");
+        assert_eq!(expected, actual);
         assert_eq!(
             serde_json::to_value(expected).expect("failed to serialize to string"),
             json
