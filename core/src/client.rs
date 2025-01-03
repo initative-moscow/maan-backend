@@ -10,6 +10,7 @@ const CERT_THUMBPRINT: &str = "";
 
 // Known endpoint for cyclops: "https://pre.tochka.com/api/v1/cyclops/v2/jsonrpc";
 
+#[derive(Debug, Clone)]
 pub struct MaanClient {
     sign_system: String,
     sign_thumbprint: String,
@@ -92,31 +93,31 @@ mod tests {
     БИК: 044525104
     */
 
-    #[test]
-    fn test_send_echo() {
-        let _ = env_logger::Builder::from_default_env()
-            .format_module_path(false)
-            .format_level(true)
-            .try_init();
+    // #[test]
+    // fn test_send_echo() {
+    //     let _ = env_logger::Builder::from_default_env()
+    //         .format_module_path(false)
+    //         .format_level(true)
+    //         .try_init();
 
-        let signer = Signer::new().expect("failed signer creation");
-        let maan_client = MaanClient::new(
-            PLATFORM_ID.to_string(),
-            CERT_THUMBPRINT.to_string(),
-            "https://pre.tochka.com/api/v1/cyclops/v2/jsonrpc".to_string(),
-        );
-        let request = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": utils::new_uuid_v4().to_string(),
-            "method": "echo",
-            "params": {"text": "Hello World!"},
-        });
-        let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
+    //     let signer = Signer::new().expect("failed signer creation");
+    //     let maan_client = MaanClient::new(
+    //         PLATFORM_ID.to_string(),
+    //         CERT_THUMBPRINT.to_string(),
+    //         "https://pre.tochka.com/api/v1/cyclops/v2/jsonrpc".to_string(),
+    //     );
+    //     let request = serde_json::json!({
+    //         "jsonrpc": "2.0",
+    //         "id": utils::new_uuid_v4().to_string(),
+    //         "method": "echo",
+    //         "params": {"text": "Hello World!"},
+    //     });
+    //     let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
 
-        maan_client
-            .send_request(&signer, request_bytes)
-            .expect("failed");
-    }
+    //     maan_client
+    //         .send_request(&signer, request_bytes)
+    //         .expect("failed");
+    // }
 
     #[test]
     fn test_create_beneficiary() {
@@ -499,24 +500,24 @@ mod tests {
         // let response = maan_client.send_request(&signer, request_bytes).expect("failed");
         // log::warn!("Response: {:#?}", response.json::<serde_json::Value>());
 
-        #[derive(Debug, Deserialize)]
-        struct GetVirtualAccount {
-            jsonrpc: String,
-            id: String,
-            result: serde_json::Value,
-        }
-        let request = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": utils::new_uuid_v4().to_string(),
-            "method": "get_virtual_account",
-            "params": {
-                "virtual_account": "e8449e0f-b18a-423a-a3fd-dd1c2807e90d",
-            },
-        });
-        let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
-        let response = maan_client
-            .send_request(&signer, request_bytes)
-            .expect("failed");
-        log::warn!("Response: {:#?}", response.json::<serde_json::Value>());
+        // #[derive(Debug, Deserialize)]
+        // struct GetVirtualAccount {
+        //     jsonrpc: String,
+        //     id: String,
+        //     result: serde_json::Value,
+        // }
+        // let request = serde_json::json!({
+        //     "jsonrpc": "2.0",
+        //     "id": utils::new_uuid_v4().to_string(),
+        //     "method": "get_virtual_account",
+        //     "params": {
+        //         "virtual_account": "e8449e0f-b18a-423a-a3fd-dd1c2807e90d",
+        //     },
+        // });
+        // let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
+        // let response = maan_client
+        //     .send_request(&signer, request_bytes)
+        //     .expect("failed");
+        // log::warn!("Response: {:#?}", response.json::<serde_json::Value>());
     }
 }

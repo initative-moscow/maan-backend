@@ -13,14 +13,15 @@ const PUBLIC_KEY: &str = r#"-----BEGIN PUBLIC KEY-----
 -----END PUBLIC KEY-----
 "#;
 
+#[derive(Debug, Clone)]
 pub struct Signer {
     private_key: RsaPrivateKey,
     public_key: RsaPublicKey,
 }
 
 impl Signer {
-    pub fn new() -> Result<Self> {
-        let private_key = RsaPrivateKey::from_pkcs8_pem(PRIVATE_KEY)?;
+    pub fn new(pem_string: String) -> Result<Self> {
+        let private_key = RsaPrivateKey::from_pkcs8_pem(&pem_string)?;
         let public_key = private_key.to_public_key();
 
         Ok(Signer {
