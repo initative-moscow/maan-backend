@@ -22,6 +22,20 @@ pub struct CreateBeneficiaryUlRequest {
     pub beneficiary_data: BeneficiaryData,
 }
 
+impl CreateBeneficiaryUlRequest {
+    pub fn into_json_request(self) -> serde_json::Value {
+        serde_json::json!({
+            "inn": self.inn,
+            "nominal_account_code": self.nominal_account_code,
+            "nominal_account_bic": self.nominal_account_bic,
+            "beneficiary_data": {
+                "name": self.beneficiary_data.name,
+                "kpp": self.beneficiary_data.kpp,
+            },
+        })
+    }
+}
+
 /// Beneficiary data for creating beneficiary request.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BeneficiaryData {

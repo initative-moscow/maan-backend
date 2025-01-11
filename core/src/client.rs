@@ -37,7 +37,9 @@ impl MaanClient {
             utils::base64_encode(signed_body)
         };
 
+        println!("REACHED HERE");
         let client = Client::new();
+        println!("URL: {:#?}", &self.endpoint);
         let request = client
             .request(Method::POST, &self.endpoint)
             .header("sign-system", &self.sign_system)
@@ -45,6 +47,8 @@ impl MaanClient {
             .header("sign-data", &b64_body_signature)
             .header("Content-Type", "application/json")
             .body(body);
+
+        println!("BUT NOT HERE!");
 
         log::trace!("Sending request: {:#?}", request);
 
