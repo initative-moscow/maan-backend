@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 actix-web = "4.9.0"
 anyhow = "1.0.83"
+log = "0.4.25"
 tokio = { version = "1.42.0", features = ["full"] }
 maan-core = { path = "../core" }
 serde_json = "1.0"

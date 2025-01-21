@@ -4,13 +4,12 @@
 mod db;
 mod error;
 
-use actix_web::{post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{post, get, web, App, HttpResponse, HttpServer, Responder};
 use clap::Parser;
 use db::{InMemoryStore, Store};
 use error::AnyhowResponseError;
 use maan_core::tochka::{
-    create_beneficiary::{BeneficiaryData, CreateBeneficiaryResponse, CreateBeneficiaryUlRequest},
-    TochkaApiRequest, TochkaApiResponse,
+    create_beneficiary::{BeneficiaryData, CreateBeneficiaryResponse, CreateBeneficiaryUlRequest}, list_beneficiary::{ListBeneficiaryRequest, ListBeneficiaryResponse}, TochkaApiRequest, TochkaApiResponse, TochkaApiResponsePayload
 };
 use maan_core::{MaanClient, Signer};
 use std::{collections::BTreeMap, fs, path::PathBuf, sync::Arc, fmt::Debug};
@@ -27,31 +26,68 @@ async fn create_beneficiary(
     data: web::Data<AppData>,
     create_beneficiary_req: web::Json<CreateBeneficiaryUlRequest>,
 ) -> Result<impl Responder, AnyhowResponseError> {
-    let f = async move {
-        let v = serde_json::to_value(&create_beneficiary_req.0)?;
-        println!("{v:#?}");
+    let beneficiary_data = create_beneficiary_req.0.beneficiary_data.clone();
+    let data_clone = data.clone();
+    let task = async move {
+        let params = serde_json::to_value(&create_beneficiary_req.0)?;
         let req = serde_json::json!({
             "jsonrpc": "2.0",
             "id": maan_core::utils::new_uuid_v4().to_string(),
             "method": "create_beneficiary_ul",
-            "params": v,
+            "params": params,
         });
-        println!("Request {req:#?}");
+        log::debug!("Sending request {req:#?}");
         let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-        let resp = web::block(move || {
-            data.maan_client
-                .send_request(&data.signer, bytes)
+        web::block(move || {
+            data_clone.maan_client
+                .send_request(&data_clone.signer, bytes)
                 .unwrap()
                 .json::<TochkaApiResponse<CreateBeneficiaryResponse>>()
-        }).await;
-        println!("{resp:#?}");
-
-        Ok::<(), anyhow::Error>(())
+        })
+        .await
+        .expect("web::block failed")
+        .map_err(anyhow::Error::from)
     };
 
-    f.await?;
-   
-    Ok("hello world!")
+    let res = task.await?;
+    match res.payload {
+        TochkaApiResponsePayload::Result { result } => {
+            let CreateBeneficiaryResponse::Beneficiary { id, ..  } = result;
+            data.store.store_beneficiary(id, beneficiary_data).await?;
+
+            Ok(HttpResponse::Ok().finish())
+        }
+        TochkaApiResponsePayload::Error { error } => Ok(HttpResponse::InternalServerError().json(error)),
+    }
+}
+
+#[get("/list_beneficiary")]
+async fn list_beneficiary(data: web::Data<AppData>, list_beneficiary_req: web::Json<ListBeneficiaryRequest>) -> Result<impl Responder, AnyhowResponseError> {
+    let params = serde_json::to_value(&list_beneficiary_req.0).map_err(anyhow::Error::from)?;
+    let req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": maan_core::utils::new_uuid_v4().to_string(),
+        "method": "list_beneficiary",
+        "params": params,
+    });
+    log::debug!("Sending request {req:#?}");
+    let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let res = web::block(move || {
+        data.maan_client
+            .send_request(&data.signer, bytes)
+            .unwrap()
+            .json::<TochkaApiResponse<ListBeneficiaryResponse>>()
+    })
+        .await
+        .expect("web::block failed")
+        .map_err(anyhow::Error::from)?;
+    
+    match res.payload {
+        TochkaApiResponsePayload::Result { result } => {
+            Ok(HttpResponse::Ok().json(result))
+        }
+        TochkaApiResponsePayload::Error { error } => Ok(HttpResponse::InternalServerError().json(error)),
+    }
 }
 
 #[actix_web::main]
@@ -77,6 +113,7 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .app_data(data.clone())
             .service(create_beneficiary)
+            .service(list_beneficiary)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

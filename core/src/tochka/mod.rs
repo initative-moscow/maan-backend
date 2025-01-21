@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod create_beneficiary;
+pub mod list_beneficiary;
 
 /// General tochka API JSON request type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
