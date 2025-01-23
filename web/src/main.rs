@@ -12,6 +12,7 @@ use maan_core::tochka::{
     create_beneficiary::{CreateBeneficiaryResponse, CreateBeneficiaryUlRequest},
     create_virtual_account::CreateVirtualAccountRequest,
     get_virtual_account::{GetVirtualAccountRequest, GetVirtualAccountResponseIO},
+    identification_payment::{IdentificationPaymentRequest, IdentificationPaymentResponse},
     list_beneficiary::{ListBeneficiaryRequest, ListBeneficiaryResponse},
     list_payments::{ListPaymentsRequest, ListPaymentsResponse},
     sbp_qrcode::{GenerateSbpQrCodeRequest, GenerateSbpQrCodeResponseIO},
@@ -339,6 +340,38 @@ async fn get_virtual_account(
     }
 }
 
+#[post("/identify_payment")]
+async fn identify_payment(
+    data: web::Data<AppData>,
+    identify_payment_req: web::Json<IdentificationPaymentRequest>,
+) -> Result<impl Responder, AnyhowResponseError> {
+    let params = serde_json::to_value(&identify_payment_req.0).map_err(anyhow::Error::from)?;
+    let req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": maan_core::utils::new_uuid_v4().to_string(),
+        "method": "identification_payment",
+        "params": params,
+    });
+    log::debug!("Sending request {req:#?}");
+    let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let res = web::block(move || {
+        data.maan_client
+            .send_request(&data.signer, bytes)
+            .unwrap()
+            .json::<TochkaApiResponse<IdentificationPaymentResponse>>()
+    })
+    .await
+    .expect("web::block failed")
+    .map_err(anyhow::Error::from)?;
+
+    match res.payload {
+        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+        TochkaApiResponsePayload::Error { error } => {
+            Ok(HttpResponse::InternalServerError().json(error))
+        }
+    }
+}
+
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -352,7 +385,7 @@ async fn main() -> anyhow::Result<()> {
     let signer = Signer::new(private_key_string)?;
     let maan_client = MaanClient::new(args.sign_system, args.sign_thumbprint, args.endpoint);
     let store = Box::new(InMemoryStore::new());
-    
+
     // TODO use mutex (!)
     let data = web::Data::new(AppData {
         store,
@@ -370,6 +403,7 @@ async fn main() -> anyhow::Result<()> {
             .service(list_payments)
             .service(upload_document)
             .service(create_virtual_account)
+            .service(identify_payment)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 pub mod create_beneficiary;
 pub mod create_virtual_account;
 pub mod get_virtual_account;
+pub mod identification_payment;
 pub mod list_beneficiary;
 pub mod list_payments;
 pub mod sbp_qrcode;
+pub mod create_deal;
 
 /// General tochka API JSON request type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
