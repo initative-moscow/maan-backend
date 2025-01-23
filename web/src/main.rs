@@ -10,6 +10,7 @@ use db::{InMemoryStore, Store};
 use error::AnyhowResponseError;
 use maan_core::tochka::{
     create_beneficiary::{CreateBeneficiaryResponse, CreateBeneficiaryUlRequest},
+    create_deal::CreateDealRequest,
     create_virtual_account::CreateVirtualAccountRequest,
     get_virtual_account::{GetVirtualAccountRequest, GetVirtualAccountResponseIO},
     identification_payment::{IdentificationPaymentRequest, IdentificationPaymentResponse},
@@ -359,6 +360,38 @@ async fn identify_payment(
             .send_request(&data.signer, bytes)
             .unwrap()
             .json::<TochkaApiResponse<IdentificationPaymentResponse>>()
+    })
+    .await
+    .expect("web::block failed")
+    .map_err(anyhow::Error::from)?;
+
+    match res.payload {
+        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+        TochkaApiResponsePayload::Error { error } => {
+            Ok(HttpResponse::InternalServerError().json(error))
+        }
+    }
+}
+
+#[post("/create_deal")]
+async fn create_deal(
+    data: web::Data<AppData>,
+    create_deal_req: web::Json<CreateDealRequest>,
+) -> Result<impl Responder, AnyhowResponseError> {
+    let params = serde_json::to_value(&create_deal_req.0).map_err(anyhow::Error::from)?;
+    let req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": maan_core::utils::new_uuid_v4().to_string(),
+        "method": "create_deal",
+        "params": params,
+    });
+    log::debug!("Sending request {req:#?}");
+    let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let res = web::block(move || {
+        data.maan_client
+            .send_request(&data.signer, bytes)
+            .unwrap()
+            .json::<TochkaApiResponse<CreateBeneficiaryResponse>>()
     })
     .await
     .expect("web::block failed")

@@ -413,46 +413,5 @@ mod tests {
         //     log::warn!("Response: {:#?}", response.json::<CreateVirtualAccount>());
 
         // virtual account - e8449e0f-b18a-423a-a3fd-dd1c2807e90d
-        // #[derive(Debug, Deserialize)]
-        // struct IdentificationPayment {
-        //     jsonrpc: String,
-        //     id: String,
-        //     result: serde_json::Value,
-        // }
-        // let request = serde_json::json!({
-        //     "jsonrpc": "2.0",
-        //     "id": utils::new_uuid_v4().to_string(),
-        //     "method": "identification_payment",
-        //     "params": {
-        //         "payment_id": "cbs-tb-92-466713629",
-        //         "owners": [{
-        //             "virtual_account": "e8449e0f-b18a-423a-a3fd-dd1c2807e90d",
-        //             "amount": 1000
-        //         }],
-        //     },
-        // });
-        // let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
-        // let response = maan_client.send_request(&signer, request_bytes).expect("failed");
-        // log::warn!("Response: {:#?}", response.json::<serde_json::Value>());
-
-        // #[derive(Debug, Deserialize)]
-        // struct GetVirtualAccount {
-        //     jsonrpc: String,
-        //     id: String,
-        //     result: serde_json::Value,
-        // }
-        // let request = serde_json::json!({
-        //     "jsonrpc": "2.0",
-        //     "id": utils::new_uuid_v4().to_string(),
-        //     "method": "get_virtual_account",
-        //     "params": {
-        //         "virtual_account": "e8449e0f-b18a-423a-a3fd-dd1c2807e90d",
-        //     },
-        // });
-        // let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
-        // let response = maan_client
-        //     .send_request(&signer, request_bytes)
-        //     .expect("failed");
-        // log::warn!("Response: {:#?}", response.json::<serde_json::Value>());
     }
 }
