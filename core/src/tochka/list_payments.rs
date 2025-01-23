@@ -9,6 +9,7 @@ pub struct ListPaymentsRequest {
 pub struct ListPaymentsFilters {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub c2b_qr_code_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub identify: Option<bool>,
     pub incoming: bool,
 }
