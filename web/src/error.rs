@@ -15,4 +15,4 @@ impl AnyhowResponseError {
 }
 
 // TODO: add proper impl
-impl ResponseError for AnyhowResponseError { }
+impl ResponseError for AnyhowResponseError {}

@@ -4,9 +4,7 @@ use reqwest::{
     blocking::{Client, Response},
     Method,
 };
-
-const PLATFORM_ID: &str = "maan";
-const CERT_THUMBPRINT: &str = "";
+use std::collections::HashMap;
 
 // Known endpoint for cyclops: "https://pre.tochka.com/api/v1/cyclops/v2/jsonrpc";
 
@@ -37,9 +35,7 @@ impl MaanClient {
             utils::base64_encode(signed_body)
         };
 
-        println!("REACHED HERE");
         let client = Client::new();
-        println!("URL: {:#?}", &self.endpoint);
         let request = client
             .request(Method::POST, &self.endpoint)
             .header("sign-system", &self.sign_system)
@@ -48,9 +44,7 @@ impl MaanClient {
             .header("Content-Type", "application/json")
             .body(body);
 
-        println!("BUT NOT HERE!");
-
-        log::trace!("Sending request: {:#?}", request);
+        log::debug!("Sending request: {:#?}", request);
 
         request.send().map_err(Into::into)
     }
@@ -78,7 +72,46 @@ impl MaanClient {
             .header("Content-Type", "application/json")
             .body(body);
 
-        log::trace!("Sending request: {:#?}", request);
+        log::debug!("Sending request: {:#?}", request);
+
+        request.send().map_err(Into::into)
+    }
+
+    pub fn upload_document(
+        &self,
+        signer: &Signer,
+        b64_document: String,
+        beneficiary_id: String,
+        document_number: String,
+        document_date: String,
+        content_type: String,
+    ) -> Result<Response> {
+        let document_bytes = utils::base64_decode(b64_document)?;
+        let mut query_params = HashMap::new();
+        query_params.insert("beneficiary_id", beneficiary_id);
+        query_params.insert("document_type", "contract_offer".to_string());
+        query_params.insert("document_number", document_number);
+        query_params.insert("document_date", document_date);
+
+        let b64_document_signature = {
+            let signed_body = signer.sign_raw_data(&document_bytes).unwrap();
+            utils::base64_encode(signed_body)
+        };
+
+        let client = Client::new();
+        let request = client
+            .request(
+                Method::POST,
+                "https://pre.tochka.com/api/v1/cyclops/upload_document/beneficiary",
+            )
+            .query(&query_params)
+            .header("sign-system", &self.sign_system)
+            .header("sign-thumbprint", &self.sign_thumbprint)
+            .header("sign-data", &b64_document_signature)
+            .header("Content-Type", content_type)
+            .body(document_bytes);
+
+        log::debug!("Sending request: {:#?}", request);
 
         request.send().map_err(Into::into)
     }
@@ -136,10 +169,10 @@ mod tests {
             .format_module_path(false)
             .format_level(true)
             .try_init();
-        let signer = Signer::new().expect("failed signer creation");
+        // let signer = Signer::new().expect("failed signer creation");
         let maan_client = MaanClient::new(
-            PLATFORM_ID.to_string(),
-            CERT_THUMBPRINT.to_string(),
+            "".to_string(),
+            "".to_string(),
             "https://pre.tochka.com/api/v1/cyclops/v2/jsonrpc".to_string(),
         );
         //         /*
@@ -148,47 +181,7 @@ mod tests {
         // Общество с ограниченной ответственностью "Петруня"
         // ИНН 6671217676
         // КПП 667101001
-        //          */
-        //         // let request = serde_json::json!({
-        //         //     "jsonrpc": "2.0",
-        //         //     "id": utils::new_uuid_v4().to_string(),
-        //         //     "method": "create_beneficiary_ul",
-        //         //     "params": {
-        //         //         "inn": "6671217676",
-        //         //         "nominal_account_code": "40702810620000088278",
-        //         //         "nominal_account_bic": "044525104",
-        //         //         "beneficiary_data": {
-        //         //             "name": "ООО \"Петруня\"",
-        //         //             "kpp": "667101001"
-        //         //         }
-        //         //     },
-        //         // });
-        //         // log::warn!("Create beneficiary request {:#?}", request);
-        //         // let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
-        //         // let response = maan_client.send_request(&signer, request_bytes).expect("failed");
-        //         // log::warn!("Response: {:#?}", response.json::<CreateBeneficiaryResponse>());
-
         // Beneficiary id - ca5cc32e-f4a4-460f-97a4-28e924a126ea
-        // #[derive(Debug, Deserialize)]
-        // struct ListBeneficiaries {
-        //     jsonrpc: String,
-        //     id: String,
-        //     result: serde_json::Value,
-        // }
-        // let request = serde_json::json!({
-        //     "jsonrpc": "2.0",
-        //     "id": utils::new_uuid_v4().to_string(),
-        //     "method": "list_beneficiary",
-        //     "params": {
-        //         "filters": {
-        //             "legal_type": "J"
-        //         },
-        //     },
-        // });
-        // log::warn!("List beneficiaries request {:#?}", request);
-        // let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
-        // let response = maan_client.send_request(&signer, request_bytes).expect("failed");
-        // log::warn!("Response: {:#?}", response.json::<ListBeneficiaries>());
 
         //         // mock payment
         //         // #[derive(Debug, Deserialize)]
@@ -292,74 +285,12 @@ mod tests {
         //                 },
         //             },
 
-        //          */
-        // // qr-code payment create
-        // #[derive(Debug, Deserialize)]
-        // struct GenerateSbpQrCode {
-        //     jsonrpc: String,
-        //     id: String,
-        //     result: serde_json::Value,
-        // }
-        // let request = serde_json::json!({
-        //     "jsonrpc": "2.0",
-        //     "id": utils::new_uuid_v4().to_string(),
-        //     "method": "generate_sbp_qrcode",
-        //     "params": {
-        //         "amount": 1000,
-        //         "purpose": "Оплата по договору 67890",
-        //         "nominal_account_code": "40702810620000088278",
-        //         "nominal_account_bic": "044525104",
-        //         "width": 400,
-        //         "height": 400,
-        //     },
-        // });
-        // log::warn!("Generate SBP QR code request {:#?}", request);
-        // let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
-        // let response = maan_client.send_request(&signer, request_bytes).expect("failed");
-        // log::warn!("Response: {:#?}", response.json::<GenerateSbpQrCode>());
+        //
+
         // qr code id - BD10003L8T8EKULS8F9AHGHGP5BDDE0G
+        // sbp payment id: "cbs-tb-92-466713629"
+        // document id "cyclops-241224175417527-fbb640d5-1e32-441f-82d2-238310165246"
 
-        //         // qr-code payment
-        // #[derive(Debug, Deserialize)]
-        // struct SendQrCodePayment {
-        //     jsonrpc: String,
-        //     id: String,
-        //     result: serde_json::Value,
-        // }
-        // let request = serde_json::json!({
-        //     "jsonrpc": "2.0",
-        //     "id": utils::new_uuid_v4().to_string(),
-        //     "method": "send_c2b_credit_transfer_request",
-        //     "params": {
-        //         "qrc_id": "BD10003L8T8EKULS8F9AHGHGP5BDDE0G",
-        //         "amount": 1000,
-        //         "qrc_type": "02",
-        //         "creditor_bank_id": "100000000284",
-        //     },
-        // });
-        // log::warn!("Send QR code payment request {:#?}", request);
-        // let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
-        // let response = maan_client.send_request_tenders(&signer, request_bytes).expect("failed");
-        // log::warn!("Response: {:#?}", response.json::<SendQrCodePayment>());
-
-        // list payments again
-        // let request = serde_json::json!({
-        //     "jsonrpc": "2.0",
-        //     "id": utils::new_uuid_v4().to_string(),
-        //     "method": "list_payments",
-        //     "params": {
-        //         "filters": {
-        //             "incoming": true,
-        //             "identify": false,
-        //         },
-        //     },
-        // });
-        // log::warn!("List payments request {:#?}", request);
-        // let request_bytes = serde_json::to_vec(&request).expect("failed serializing json value");
-        // let response = maan_client.send_request(&signer, request_bytes).expect("failed");
-        // log::warn!("Response: {:#?}", response.json::<ListPayments>());
-
-        //         // sbp payment id: "cbs-tb-92-466713629"
         // let request = serde_json::json!({
         //     "jsonrpc": "2.0",
         //     "id": utils::new_uuid_v4().to_string(),
@@ -408,37 +339,37 @@ mod tests {
         //                 "updated_at": String("2024-12-24T20:03:23.020027+03:00"),
         //             },
         //         */
-        // //         let mut file_body = r#"<?xml version="1.0" encoding="UTF-8"?>
-        // // <note>
-        // //   <to>Tove 電紅 Какой-то кириллический текст</to>
-        // //   <from>Jani</from>
-        // //   <heading>Reminder</heading>
-        // //   <body>Don't forget me this weekend!</body>
-        // // </note>"#
-        // //         .trim()
-        // //         .as_bytes()
-        // //         .to_vec();
+        // let mut file_body = r#"<?xml version="1.0" encoding="UTF-8"?>
+        // <note>
+        // <to>Tove 電紅 Какой-то кириллический текст</to>
+        // <from>Jani</from>
+        // <heading>Reminder</heading>
+        // <body>Don't forget me this weekend!</body>
+        // </note>"#
+        // .trim()
+        // .as_bytes()
+        // .to_vec();
 
-        // //         let mut query_params = HashMap::new();
-        // //         query_params.insert("beneficiary_id", "ca5cc32e-f4a4-460f-97a4-28e924a126ea".to_string());
-        // //         query_params.insert("document_type", "contract_offer".to_string());
-        // //         query_params.insert("document_number", "12345".to_string());
-        // //         query_params.insert("document_date", "2024-12-24".to_string());
+        // let mut query_params = HashMap::new();
+        // query_params.insert("beneficiary_id", "ca5cc32e-f4a4-460f-97a4-28e924a126ea".to_string());
+        // query_params.insert("document_type", "contract_offer".to_string());
+        // query_params.insert("document_number", "12345".to_string());
+        // query_params.insert("document_date", "2024-12-24".to_string());
 
-        // //         let b64_body_signature = {
-        // //             let signed_body = signer.sign_raw_data(&file_body).unwrap();
-        // //             utils::base64_encode(signed_body)
-        // //         };
+        // let b64_body_signature = {
+        //     let signed_body = signer.sign_raw_data(&file_body).unwrap();
+        //     utils::base64_encode(signed_body)
+        // };
 
-        // //         let client = Client::new();
-        // //         let request = client
-        // //             .request(Method::POST, "https://pre.tochka.com/api/v1/cyclops/upload_document/beneficiary")
-        // //             .query(&query_params)
-        // //             .header("sign-system", PLATFORM_ID)
-        // //             .header("sign-thumbprint", CERT_THUMBPRINT)
-        // //             .header("sign-data", &b64_body_signature)
-        // //             .header("Content-Type", "text/xml")
-        // //             .body(file_body);
+        // let client = Client::new();
+        // let request = client
+        //     .request(Method::POST, "https://pre.tochka.com/api/v1/cyclops/upload_document/beneficiary")
+        //     .query(&query_params)
+        //     .header("sign-system", PLATFORM_ID)
+        //     .header("sign-thumbprint", CERT_THUMBPRINT)
+        //     .header("sign-data", &b64_body_signature)
+        //     .header("Content-Type", "text/xml")
+        //     .body(file_body);
 
         // //         log::trace!("Sending request: {:#?}", request);
         // //         let resp = request.send().expect("failed");

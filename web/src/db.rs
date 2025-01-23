@@ -1,12 +1,16 @@
 use anyhow::Error;
 use async_trait::async_trait;
-use tokio::sync::Mutex;
-use std::{sync::Arc, collections::BTreeMap, fmt::Debug};
 use maan_core::tochka::create_beneficiary::BeneficiaryData;
+use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
+use tokio::sync::Mutex;
 
 #[async_trait]
 pub trait Store: Send + Sync {
-    async fn store_beneficiary(&self, id: String, beneficiary: BeneficiaryData) -> Result<(), Error>;
+    async fn store_beneficiary(
+        &self,
+        id: String,
+        beneficiary: BeneficiaryData,
+    ) -> Result<(), Error>;
     async fn get_beneficiary(&self, id: &str) -> Result<Option<BeneficiaryData>, Error>;
 }
 
@@ -29,7 +33,11 @@ impl InMemoryStore {
 
 #[async_trait]
 impl Store for InMemoryStore {
-    async fn store_beneficiary(&self, id: String, beneficiary: BeneficiaryData) -> Result<(), Error> {
+    async fn store_beneficiary(
+        &self,
+        id: String,
+        beneficiary: BeneficiaryData,
+    ) -> Result<(), Error> {
         self.inner.lock().await.store_beneficiary(id, beneficiary)
     }
 

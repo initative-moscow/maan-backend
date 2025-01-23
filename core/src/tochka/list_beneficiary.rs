@@ -22,12 +22,12 @@ pub struct ListBeneficiaryFilters {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ListBeneficiaryResponse{
+pub struct ListBeneficiaryResponse {
     pub beneficiaries: Vec<ListBeneficiaryData>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ListBeneficiaryData{
+pub struct ListBeneficiaryData {
     pub id: String,
     pub inn: String,
     pub nominal_account_code: String,
@@ -40,7 +40,7 @@ pub struct ListBeneficiaryData{
 pub enum LegalType {
     F,
     I,
-    J
+    J,
 }
 
 impl Display for LegalType {
