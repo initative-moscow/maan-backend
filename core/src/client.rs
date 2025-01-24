@@ -77,7 +77,7 @@ impl MaanClient {
         request.send().map_err(Into::into)
     }
 
-    pub fn upload_document(
+    pub fn upload_document_beneficiary(
         &self,
         signer: &Signer,
         b64_document: String,
@@ -103,6 +103,47 @@ impl MaanClient {
             .request(
                 Method::POST,
                 "https://pre.tochka.com/api/v1/cyclops/upload_document/beneficiary",
+            )
+            .query(&query_params)
+            .header("sign-system", &self.sign_system)
+            .header("sign-thumbprint", &self.sign_thumbprint)
+            .header("sign-data", &b64_document_signature)
+            .header("Content-Type", content_type)
+            .body(document_bytes);
+
+        log::debug!("Sending request: {:#?}", request);
+
+        request.send().map_err(Into::into)
+    }
+
+    pub fn upload_document_deal(
+        &self,
+        signer: &Signer,
+        b64_document: String,
+        beneficiary_id: String,
+        deal_id: String,
+        document_number: String,
+        document_date: String,
+        content_type: String,
+    ) -> Result<Response> {
+        let document_bytes = utils::base64_decode(b64_document)?;
+        let mut query_params = HashMap::new();
+        query_params.insert("beneficiary_id", beneficiary_id);
+        query_params.insert("deal_id", deal_id);
+        query_params.insert("document_type", "service_agreement".to_string());
+        query_params.insert("document_date", document_date);
+        query_params.insert("document_number", document_number);
+
+        let b64_document_signature = {
+            let signed_body = signer.sign_raw_data(&document_bytes).unwrap();
+            utils::base64_encode(signed_body)
+        };
+
+        let client = Client::new();
+        let request = client
+            .request(
+                Method::POST,
+                "https://pre.tochka.com/api/v1/cyclops/upload_document/deal",
             )
             .query(&query_params)
             .header("sign-system", &self.sign_system)

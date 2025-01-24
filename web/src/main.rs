@@ -230,7 +230,7 @@ PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPG5vdGU+Cjx0bz5Ub3ZlIOmbu+e0
 */
 
 #[derive(Debug, Serialize, Deserialize)]
-struct UploadDocumentRequest {
+struct UploadDocumentBeneficiaryRequest {
     b64_document: String,
     beneficiary_id: String,
     document_number: String,
@@ -239,16 +239,16 @@ struct UploadDocumentRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct UploadDocumentResponse {
+struct UploadDocumentBeneficiaryResponse {
     document_id: String,
 }
 
-#[post("/upload_document")]
-async fn upload_document(
+#[post("/upload_document_beneficiary")]
+async fn upload_document_beneficiary(
     data: web::Data<AppData>,
-    upload_document_req: web::Json<UploadDocumentRequest>,
+    upload_document_req: web::Json<UploadDocumentBeneficiaryRequest>,
 ) -> Result<impl Responder, AnyhowResponseError> {
-    let UploadDocumentRequest {
+    let UploadDocumentBeneficiaryRequest {
         b64_document,
         beneficiary_id,
         document_number,
@@ -256,8 +256,9 @@ async fn upload_document(
         content_type,
     } = upload_document_req.0;
     let res = web::block(move || {
-        data.maan_client
-            .upload_document(
+        let resp = data
+            .maan_client
+            .upload_document_beneficiary(
                 &data.signer,
                 b64_document,
                 beneficiary_id,
@@ -265,8 +266,11 @@ async fn upload_document(
                 document_date,
                 content_type,
             )
-            .unwrap()
-            .json::<UploadDocumentResponse>()
+            .unwrap();
+        let resp_json = resp.json::<serde_json::Value>()?;
+        log::debug!("Upload document beneficiary resp - {resp_json:#?}");
+
+        serde_json::from_value::<UploadDocumentDealResponse>(resp_json).map_err(anyhow::Error::from)
     })
     .await
     .unwrap()
@@ -405,6 +409,59 @@ async fn create_deal(
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct UploadDocumentDealRequest {
+    b64_document: String,
+    beneficiary_id: String,
+    deal_id: String,
+    document_number: String,
+    document_date: String,
+    content_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UploadDocumentDealResponse {
+    document_id: String,
+}
+
+#[post("/upload_document_deal")]
+async fn upload_document_deal(
+    data: web::Data<AppData>,
+    upload_document_deal_req: web::Json<UploadDocumentDealRequest>,
+) -> Result<impl Responder, AnyhowResponseError> {
+    let UploadDocumentDealRequest {
+        b64_document,
+        beneficiary_id,
+        deal_id,
+        document_number,
+        document_date,
+        content_type,
+    } = upload_document_deal_req.0;
+    let res = web::block(move || {
+        let resp = data
+            .maan_client
+            .upload_document_deal(
+                &data.signer,
+                b64_document,
+                beneficiary_id,
+                deal_id,
+                document_number,
+                document_date,
+                content_type,
+            )
+            .unwrap();
+        let resp_json = resp.json::<serde_json::Value>()?;
+        log::debug!("Upload document deal resp - {resp_json:#?}");
+
+        serde_json::from_value::<UploadDocumentDealResponse>(resp_json).map_err(anyhow::Error::from)
+    })
+    .await
+    .unwrap()
+    .map_err(anyhow::Error::from)?;
+
+    Ok(HttpResponse::Ok().json(res))
+}
+
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -434,7 +491,7 @@ async fn main() -> anyhow::Result<()> {
             .service(list_beneficiary)
             .service(generate_sbp_qrcode)
             .service(list_payments)
-            .service(upload_document)
+            .service(upload_document_beneficiary)
             .service(create_virtual_account)
             .service(identify_payment)
     })
