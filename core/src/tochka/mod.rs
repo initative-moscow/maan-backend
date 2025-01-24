@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 pub mod create_beneficiary;
 pub mod create_deal;
 pub mod create_virtual_account;
+pub mod execute_deal;
+pub mod get_deal;
 pub mod get_virtual_account;
 pub mod identification_payment;
 pub mod list_beneficiary;
