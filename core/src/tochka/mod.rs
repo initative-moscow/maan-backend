@@ -12,6 +12,7 @@ pub mod identification_payment;
 pub mod list_beneficiary;
 pub mod list_payments;
 pub mod sbp_qrcode;
+pub mod get_payment;
 
 /// General tochka API JSON request type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

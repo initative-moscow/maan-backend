@@ -227,6 +227,38 @@ async fn list_payments(
     }
 }
 
+#[get("/get_payment")]
+async fn get_payment(
+    data: web::Data<AppData>,
+    get_payment_req: web::Json<GetDealRequest>
+) -> Result<impl Responder, AnyhowResponseError> {
+    let params = serde_json::to_value(&get_payment_req.0).map_err(anyhow::Error::from)?;
+    let req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": maan_core::utils::new_uuid_v4().to_string(),
+        "method": "get_payment",
+        "params": params,
+    });
+    log::debug!("Sending request {req:#?}");
+    let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let res = web::block(move || {
+        data.maan_client
+            .send_request(&data.signer, bytes)
+            .unwrap()
+            .json::<TochkaApiResponse<GetVirtualAccountResponseIO>>()
+    })
+    .await
+    .expect("web::block failed")
+    .map_err(anyhow::Error::from)?;
+
+    match res.payload {
+        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result.into_inner())),
+        TochkaApiResponsePayload::Error { error } => {
+            Ok(HttpResponse::InternalServerError().json(error))
+        }
+    }
+}
+
 /*
 PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPG5vdGU+Cjx0bz5Ub3ZlIOmbu+e0hSDQmtCw0LrQvtC5LdGC0L4g0LrQuNGA0LjQu9C70LjRh9C10YHQutC40Lkg0YLQtdC60YHRgjwvdG8+Cjxmcm9tPkphbmk8L2Zyb20+CjxoZWFkaW5nPlJlbWluZGVyPC9oZWFkaW5nPgo8Ym9keT5Eb24ndCBmb3JnZXQgbWUgdGhpcyB3ZWVrZW5kITwvYm9keT4KPC9ub3RlPiI=
 */
@@ -567,6 +599,7 @@ async fn main() -> anyhow::Result<()> {
             .service(identify_payment)
             .service(upload_document_deal)
             .service(execute_deal)
+            .service(test_send_qr_payment)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
