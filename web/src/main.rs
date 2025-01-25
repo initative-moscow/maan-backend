@@ -9,7 +9,18 @@ use clap::Parser;
 use db::{InMemoryStore, Store};
 use error::AnyhowResponseError;
 use maan_core::tochka::{
-    create_beneficiary::{CreateBeneficiaryResponse, CreateBeneficiaryUlRequest}, create_deal::CreateDealRequest, create_virtual_account::CreateVirtualAccountRequest, execute_deal::{ExecuteDealRequest, ExecuteDealResponse}, get_deal::{GetDealRequest, GetDealResponse}, get_payment::{GetPaymentRequest, GetPaymentResponseIO}, get_virtual_account::{GetVirtualAccountRequest, GetVirtualAccountResponseIO}, identification_payment::{IdentificationPaymentRequest, IdentificationPaymentResponse}, list_beneficiary::{ListBeneficiaryRequest, ListBeneficiaryResponse}, list_payments::{ListPaymentsRequest, ListPaymentsResponse}, sbp_qrcode::{GenerateSbpQrCodeRequest, GenerateSbpQrCodeResponseIO}, TochkaApiResponse, TochkaApiResponsePayload
+    create_beneficiary::{CreateBeneficiaryResponse, CreateBeneficiaryUlRequest},
+    create_deal::CreateDealRequest,
+    create_virtual_account::CreateVirtualAccountRequest,
+    execute_deal::{ExecuteDealRequest, ExecuteDealResponse},
+    get_deal::{GetDealRequest, GetDealResponse},
+    get_payment::{GetPaymentRequest, GetPaymentResponseIO},
+    get_virtual_account::{GetVirtualAccountRequest, GetVirtualAccountResponseIO},
+    identification_payment::{IdentificationPaymentRequest, IdentificationPaymentResponse},
+    list_beneficiary::{ListBeneficiaryRequest, ListBeneficiaryResponse},
+    list_payments::{ListPaymentsRequest, ListPaymentsResponse},
+    sbp_qrcode::{GenerateSbpQrCodeRequest, GenerateSbpQrCodeResponseIO},
+    TochkaApiResponse, TochkaApiResponsePayload,
 };
 use maan_core::{MaanClient, Signer};
 use serde::{Deserialize, Serialize};
@@ -183,7 +194,6 @@ async fn test_send_qr_payment(
 }
 
 // TODO possibly must be done in a separate thread after creating qrcode payment
-// TODO test how to utilize `get_payment`, as it gives lot's of info on the payment
 
 #[get("/list_payments")]
 async fn list_payments(
@@ -200,14 +210,17 @@ async fn list_payments(
     log::debug!("Sending request {req:#?}");
     let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
     let res = web::block(move || {
-        data.maan_client
-            .send_request(&data.signer, bytes)
-            .unwrap()
-            .json::<TochkaApiResponse<ListPaymentsResponse>>()
+        let res = data.maan_client.send_request(&data.signer, bytes).unwrap();
+        let resp_json = res
+            .json::<serde_json::Value>()
+            .map_err(anyhow::Error::from)?;
+        log::debug!("List payment received this response {resp_json:#?}");
+
+        serde_json::from_value::<TochkaApiResponse<ListPaymentsResponse>>(resp_json)
+            .map_err(anyhow::Error::from)
     })
     .await
-    .expect("web::block failed")
-    .map_err(anyhow::Error::from)?;
+    .expect("web::block failed")?;
 
     match res.payload {
         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
@@ -220,7 +233,7 @@ async fn list_payments(
 #[get("/get_payment")]
 async fn get_payment(
     data: web::Data<AppData>,
-    get_payment_req: web::Json<GetPaymentRequest>
+    get_payment_req: web::Json<GetPaymentRequest>,
 ) -> Result<impl Responder, AnyhowResponseError> {
     let params = serde_json::to_value(&get_payment_req.0).map_err(anyhow::Error::from)?;
     let req = serde_json::json!({
@@ -232,17 +245,22 @@ async fn get_payment(
     log::debug!("Sending request {req:#?}");
     let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
     let res = web::block(move || {
-        data.maan_client
-            .send_request(&data.signer, bytes)
-            .unwrap()
-            .json::<TochkaApiResponse<GetPaymentResponseIO>>()
+        let res = data.maan_client.send_request(&data.signer, bytes).unwrap();
+        let resp_json = res
+            .json::<serde_json::Value>()
+            .map_err(anyhow::Error::from)?;
+        log::debug!("Get payment received this response {resp_json:#?}");
+
+        serde_json::from_value::<TochkaApiResponse<GetPaymentResponseIO>>(resp_json)
+            .map_err(anyhow::Error::from)
     })
     .await
-    .expect("web::block failed")
-    .map_err(anyhow::Error::from)?;
+    .expect("web::block failed")?;
 
     match res.payload {
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result.into_inner())),
+        TochkaApiResponsePayload::Result { result } => {
+            Ok(HttpResponse::Ok().json(result.into_inner()))
+        }
         TochkaApiResponsePayload::Error { error } => {
             Ok(HttpResponse::InternalServerError().json(error))
         }
@@ -590,6 +608,7 @@ async fn main() -> anyhow::Result<()> {
             .service(upload_document_deal)
             .service(execute_deal)
             .service(test_send_qr_payment)
+            .service(get_payment)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

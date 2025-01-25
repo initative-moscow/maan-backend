@@ -8,7 +8,7 @@ pub struct GetPaymentRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetPaymentResponseIO {
     #[serde(rename = "payment")]
-    inner: GetPaymentResponse
+    pub inner: GetPaymentResponse,
 }
 
 impl GetPaymentResponseIO {
@@ -22,6 +22,8 @@ pub struct GetPaymentResponse {
     pub id: String,
     pub amount: f64,
     pub document_number: String,
+    pub deal_id: Option<String>,
+    pub document_date: String,
     // TODO enum
     pub status: String,
     #[serde(rename = "type")]
@@ -31,7 +33,6 @@ pub struct GetPaymentResponse {
     pub updated_at: String,
     pub incoming: bool,
     pub identify: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub qrcode_id: Option<String>,
     pub payer: PaymentParticipant,
     pub recipient: PaymentParticipant,
@@ -44,7 +45,6 @@ pub struct PaymentParticipant {
     pub bank_name: String,
     pub name: String,
     pub tax_code: String,
-    pub tax_reason_code: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tax_reason_code: Option<String>,
     pub bank_correspondent_account: Option<String>,
 }

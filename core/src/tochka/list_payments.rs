@@ -11,7 +11,8 @@ pub struct ListPaymentsFilters {
     pub c2b_qr_code_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub identify: Option<bool>,
-    pub incoming: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub incoming: Option<bool>,
 }
 
 // todo add meta

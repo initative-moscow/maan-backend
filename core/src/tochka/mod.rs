@@ -7,12 +7,12 @@ pub mod create_deal;
 pub mod create_virtual_account;
 pub mod execute_deal;
 pub mod get_deal;
+pub mod get_payment;
 pub mod get_virtual_account;
 pub mod identification_payment;
 pub mod list_beneficiary;
 pub mod list_payments;
 pub mod sbp_qrcode;
-pub mod get_payment;
 
 /// General tochka API JSON request type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -50,6 +50,8 @@ pub struct TochkaError {
 
 #[cfg(test)]
 mod tests {
+    use get_payment::{GetPaymentResponse, GetPaymentResponseIO, PaymentParticipant};
+
     use super::*;
     use crate::tochka::create_beneficiary::{
         BeneficiaryData, CreateBeneficiaryResponse, CreateBeneficiaryUlRequest,
@@ -190,5 +192,47 @@ mod tests {
             serde_json::to_value(expected).expect("failed to serialize to string"),
             json
         );
+    }
+
+    #[test]
+    fn test_get_payment() {
+        let v = r#"{
+            "id": "67d1daf1-078b-414a-a2fa-7e879d3e1aa6",
+            "jsonrpc": "2.0",
+            "result": {
+                "payment": {
+                    "amount": 1000.0,
+                    "created_at": "2024-12-24T21:29:23.551167+03:00",
+                    "document_date": "2024-12-24",
+                    "document_number": "52",
+                    "id": "cbs-tb-92-466713629",
+                    "identify": true,
+                    "incoming": true,
+                    "payer": {
+                        "account": "30233810620000000010",
+                        "bank_code": "044525104",
+                        "bank_correspondent_account": "30101810745374525104",
+                        "bank_name": "ООО \"Банк Точка\"",
+                        "name": "ООО \"Банк Точка\"",
+                        "tax_code": "9721194461",
+                        "tax_reason_code": "997950001"
+                    },
+                    "purpose": "Зачисление по QR коду ID BD10003L8T8EKULS8F9AHGHGP5BDDE0G от 24.12.2024. НДС не предусмотрен.",
+                    "qrcode_id": "BD10003L8T8EKULS8F9AHGHGP5BDDE0G",
+                    "recipient": {
+                        "account": "40702810620000088278",
+                        "bank_code": "044525104",
+                        "bank_correspondent_account": "30101810745374525104",
+                        "bank_name": "ООО \"Банк Точка\"",
+                        "name": "ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ \"ЭЛИТСТРОЙМОНТАЖ\"",
+                        "tax_code": "2631037888"
+                    },
+                    "status": "PAID",
+                    "type": "incoming_sbp",
+                    "updated_at": "2024-12-24T21:33:13.296817+03:00"
+                }
+            }
+        }"#;
+        let a: TochkaApiResponse<GetPaymentResponseIO> = serde_json::from_str(v).unwrap();
     }
 }
