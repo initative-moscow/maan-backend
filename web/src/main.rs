@@ -9,17 +9,7 @@ use clap::Parser;
 use db::{InMemoryStore, Store};
 use error::AnyhowResponseError;
 use maan_core::tochka::{
-    create_beneficiary::{CreateBeneficiaryResponse, CreateBeneficiaryUlRequest},
-    create_deal::CreateDealRequest,
-    create_virtual_account::CreateVirtualAccountRequest,
-    execute_deal::{ExecuteDealRequest, ExecuteDealResponse},
-    get_deal::{GetDealRequest, GetDealResponse},
-    get_virtual_account::{GetVirtualAccountRequest, GetVirtualAccountResponseIO},
-    identification_payment::{IdentificationPaymentRequest, IdentificationPaymentResponse},
-    list_beneficiary::{ListBeneficiaryRequest, ListBeneficiaryResponse},
-    list_payments::{ListPaymentsRequest, ListPaymentsResponse},
-    sbp_qrcode::{GenerateSbpQrCodeRequest, GenerateSbpQrCodeResponseIO},
-    TochkaApiResponse, TochkaApiResponsePayload,
+    create_beneficiary::{CreateBeneficiaryResponse, CreateBeneficiaryUlRequest}, create_deal::CreateDealRequest, create_virtual_account::CreateVirtualAccountRequest, execute_deal::{ExecuteDealRequest, ExecuteDealResponse}, get_deal::{GetDealRequest, GetDealResponse}, get_payment::{GetPaymentRequest, GetPaymentResponseIO}, get_virtual_account::{GetVirtualAccountRequest, GetVirtualAccountResponseIO}, identification_payment::{IdentificationPaymentRequest, IdentificationPaymentResponse}, list_beneficiary::{ListBeneficiaryRequest, ListBeneficiaryResponse}, list_payments::{ListPaymentsRequest, ListPaymentsResponse}, sbp_qrcode::{GenerateSbpQrCodeRequest, GenerateSbpQrCodeResponseIO}, TochkaApiResponse, TochkaApiResponsePayload
 };
 use maan_core::{MaanClient, Signer};
 use serde::{Deserialize, Serialize};
@@ -230,7 +220,7 @@ async fn list_payments(
 #[get("/get_payment")]
 async fn get_payment(
     data: web::Data<AppData>,
-    get_payment_req: web::Json<GetDealRequest>
+    get_payment_req: web::Json<GetPaymentRequest>
 ) -> Result<impl Responder, AnyhowResponseError> {
     let params = serde_json::to_value(&get_payment_req.0).map_err(anyhow::Error::from)?;
     let req = serde_json::json!({
@@ -245,7 +235,7 @@ async fn get_payment(
         data.maan_client
             .send_request(&data.signer, bytes)
             .unwrap()
-            .json::<TochkaApiResponse<GetVirtualAccountResponseIO>>()
+            .json::<TochkaApiResponse<GetPaymentResponseIO>>()
     })
     .await
     .expect("web::block failed")
