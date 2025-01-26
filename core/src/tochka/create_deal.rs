@@ -48,4 +48,6 @@ pub enum DealRecipient {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateDealResponse {
     deal_id: String,
+    // TODO
+    compliance_check_payments: serde_json::Value
 }

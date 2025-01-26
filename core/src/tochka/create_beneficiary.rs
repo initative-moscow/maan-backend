@@ -43,6 +43,8 @@ pub struct BeneficiaryData {
     pub kpp: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ogrn: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_branch: Option<bool>
 }
 
 #[cfg(test)]
@@ -65,6 +67,7 @@ mod tests {
                 name: name.to_string(),
                 kpp: kpp.to_string(),
                 ogrn: None,
+                is_branch: None,
             },
         };
         let json_request = serde_json::json!({

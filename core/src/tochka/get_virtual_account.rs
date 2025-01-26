@@ -16,9 +16,14 @@ impl GetVirtualAccountResponseIO {
 pub struct GetVirtualAccountResponse {
     #[serde(rename = "code")]
     pub virtual_account_id: String,
-    pub cash: u64,
-    pub blocked_cash: u64,
+    #[serde(rename = "type")]
+    pub virtual_account_type: String,
+    // cash - free money
+    pub cash: f64,
+    // blocked - после создания сделки
+    pub blocked_cash: f64,
     pub beneficiary_id: String,
+    pub beneficiary_inn: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

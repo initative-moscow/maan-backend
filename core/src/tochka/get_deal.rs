@@ -49,13 +49,26 @@ pub struct Recipient {
     pub recipient_type: String,
     pub requisites: Requisites,
     pub payment: Payment,
-    pub error_reason: String,
+    pub error_reason: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Requisites {
-    // TODO anything else?
-    pub virtual_account: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    purpose_nds: Option<f64>,
+    account: String,
+    bank_code: String,
+    name: String,
+    inn: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kpp: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    document_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    purpose: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    code_purpose: Option<String>,
+    identifier: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,4 +76,6 @@ pub struct Payment {
     pub id: String,
     // TODO - to enum
     pub status: String,
+    // TODO
+    pub meta: Option<serde_json::Value>
 }

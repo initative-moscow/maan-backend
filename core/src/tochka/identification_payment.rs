@@ -20,5 +20,5 @@ pub struct IdentificationPaymentResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VirtualAccountsResponse {
     pub code: String,
-    pub cash: u32,
+    pub cash: f64,
 }

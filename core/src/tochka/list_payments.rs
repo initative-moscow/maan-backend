@@ -13,6 +13,13 @@ pub struct ListPaymentsFilters {
     pub identify: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub incoming: Option<bool>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub payment_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
+    // TODO bic must be in if account is set
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bic: Option<String>
 }
 
 // todo add meta
