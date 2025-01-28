@@ -44,7 +44,7 @@ pub struct BeneficiaryData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ogrn: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub is_branch: Option<bool>
+    pub is_branch: Option<bool>,
 }
 
 #[cfg(test)]

@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use super::create_beneficiary::BeneficiaryData;
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetBeneficiaryRequest {
     pub beneficiary_id: String,
@@ -14,7 +13,7 @@ pub struct GetBeneficiaryResponse {
     pub nominal_account: NominalAccount,
     pub last_contract_offer: serde_json::Value,
     pub permission: bool,
-    pub permission_description: Option<String>
+    pub permission_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,12 +26,11 @@ pub struct GetBeneficiaryResponseBeneficiary {
     pub beneficiary_data: BeneficiaryData,
     pub created_at: String,
     pub updated_at: String,
-    
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NominalAccount {
     pub code: String,
     pub bic: String,
-    pub is_added_to_ms: Option<bool>
+    pub is_added_to_ms: Option<bool>,
 }

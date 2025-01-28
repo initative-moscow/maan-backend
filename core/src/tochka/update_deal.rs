@@ -5,7 +5,7 @@ use super::{create_deal::DealRecipient, identification_payment::PaymentOwner};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateDealRequest {
     pub deal_id: String,
-    pub deal_data: UpdateDealData
+    pub deal_data: UpdateDealData,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,5 +19,5 @@ pub struct UpdateDealData {
 pub struct UpdateDealResponse {
     deal_id: String,
     // TODO
-    compliance_check_payments: serde_json::Value
+    compliance_check_payments: serde_json::Value,
 }

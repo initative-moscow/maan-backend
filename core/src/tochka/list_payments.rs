@@ -19,7 +19,7 @@ pub struct ListPaymentsFilters {
     pub account: Option<String>,
     // TODO bic must be in if account is set
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub bic: Option<String>
+    pub bic: Option<String>,
 }
 
 // todo add meta

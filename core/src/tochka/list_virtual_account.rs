@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListVirtualAccountRequest {
-    pub filters: ListBeneficiaryFilters
+    pub filters: ListBeneficiaryFilters,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListBeneficiaryFilters {
-    pub beneficiary: BeneficiaryFilter 
+    pub beneficiary: BeneficiaryFilter,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

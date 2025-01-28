@@ -7,7 +7,7 @@ pub struct ListDealsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub per_page: Option<u32>,
     pub field_names: Vec<String>,
-    pub filters: ListDealsRequestFilters
+    pub filters: ListDealsRequestFilters,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

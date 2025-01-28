@@ -49,5 +49,5 @@ pub enum DealRecipient {
 pub struct CreateDealResponse {
     deal_id: String,
     // TODO
-    compliance_check_payments: serde_json::Value
+    compliance_check_payments: serde_json::Value,
 }

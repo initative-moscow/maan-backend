@@ -8,7 +8,7 @@ pub struct GetDocumentRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetDocumentResponseIO {
     #[serde(rename = "document")]
-    inner: GetDocumentResponse
+    inner: GetDocumentResponse,
 }
 
 impl GetDocumentResponseIO {
@@ -26,5 +26,5 @@ pub struct GetDocumentResponse {
     pub document_date: String,
     pub success_added: bool,
     pub success_added_desc: String,
-    pub deal_id: Option<String>
+    pub deal_id: Option<String>,
 }

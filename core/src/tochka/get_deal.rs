@@ -77,5 +77,5 @@ pub struct Payment {
     // TODO - to enum
     pub status: String,
     // TODO
-    pub meta: Option<serde_json::Value>
+    pub meta: Option<serde_json::Value>,
 }

@@ -6,17 +6,17 @@ pub mod create_beneficiary;
 pub mod create_deal;
 pub mod create_virtual_account;
 pub mod execute_deal;
+pub mod get_beneficiary;
 pub mod get_deal;
+pub mod get_document;
 pub mod get_payment;
 pub mod get_virtual_account;
 pub mod identification_payment;
 pub mod list_beneficiary;
-pub mod list_payments;
-pub mod sbp_qrcode;
-pub mod list_virtual_account;
-pub mod get_document;
 pub mod list_deals;
-pub mod get_beneficiary;
+pub mod list_payments;
+pub mod list_virtual_account;
+pub mod sbp_qrcode;
 pub mod update_deal;
 
 /// General tochka API JSON request type.
@@ -45,13 +45,23 @@ pub enum TochkaApiResponsePayload<T> {
     Result { result: T },
 }
 
+impl<T> TochkaApiResponsePayload<T> {
+    pub fn is_err(&self) -> bool {
+        matches!(self, TochkaApiResponsePayload::Error { .. })
+    }
+
+    pub fn is_ok(&self) -> bool {
+        matches!(self, TochkaApiResponsePayload::Result { .. })
+    }
+}
+
 // TODO: Include in error variant the meta data
 /// Exact tochka error type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TochkaError {
     pub code: u64,
     pub message: String,
-    pub meta: Option<serde_json::Value>
+    pub meta: Option<serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -97,7 +107,7 @@ mod tests {
                     name: "Test".to_string(),
                     kpp: kpp.to_string(),
                     ogrn: None,
-                    is_branch: None
+                    is_branch: None,
                 },
             },
         };
