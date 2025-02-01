@@ -1253,6 +1253,15 @@ mod tests {
         format!("{}{}", base, checksum)
     }
 
+    /// The test ensures that the beneficiary creation process works correctly, the data is
+    /// stored and retrieved accurately, and duplicate creation attempts are handled properly.
+    ///
+    /// Details in steps:
+    /// 1. Creates a new beneficiary with random INN and predefined data.
+    /// 2. Verifies that the beneficiary data is stored correctly in the database.
+    /// 3. Retrieves the beneficiary from the tochka server and asserts that the response data
+    ///    is the same as in the database.
+    /// 4. Attempts to create the same beneficiary again and expects an error response.
     #[tokio::test]
     async fn test_beneficiaries() -> anyhow::Result<()> {
         let _ = env_logger::Builder::from_default_env()
@@ -1331,6 +1340,16 @@ mod tests {
         Ok(())
     }
 
+    /// The test is designed to verify the functionality of the charity-related endpoints.
+    /// This includes creating a charity project, listing projects, getting a project for a specific beneficiary.
+    ///
+    /// Details in steps:
+    /// 1. Create a new beneficiary if there are no beneficiaries in the database.
+    /// 2. Create two charity projects for the beneficiary.
+    /// 3. Verify that the projects are stored correctly in the database.
+    /// 4. Retrieve from the server the list of projects for the beneficiary and check that the list contains the newly created projects.
+    /// 5. Retrieve from the server the details of one of the projects and verify that the data matches the expected values.
+    /// 6. Attempt to create a project with the same name and expect an error response.
     #[tokio::test]
     async fn test_charity_projects() -> anyhow::Result<()> {
         let _ = env_logger::Builder::from_default_env()
@@ -1516,6 +1535,13 @@ mod tests {
         Ok(())
     }
 
+    /// The test ensures that all the existing charity projects are listed correctly.
+    ///
+    /// Details in steps:
+    /// 1. Create two new beneficiaries.
+    /// 2. Create a couple of charity projects for each beneficiary.
+    /// 3. Retrieve from the server the list of all charity projects and check that
+    /// the list contains the newly created projects.
     #[tokio::test]
     async fn test_all_charity_projects() -> anyhow::Result<()> {
         let _ = env_logger::Builder::from_default_env()
