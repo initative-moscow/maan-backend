@@ -16,7 +16,7 @@
   "beneficiary_data": {
     "name": "string",
     "kpp": "string",
-    "ogrn": null || "string",
+    "ogrn": "string",
   }
 }
 ```
@@ -43,11 +43,11 @@
 ```json
 {
   "filters": {
-    "inn": null || "string",
-    "nominal_account_code": null || "string",
-    "nominal_account_bic": null || "string",
-    "is_active": null || "boolean",
-    "legal_type": null || "string"
+    "inn": "string",
+    "nominal_account_code": "string",
+    "nominal_account_bic": "string",
+    "is_active": "boolean",
+    "legal_type": "string"
   }
 }
 ```
@@ -90,12 +90,12 @@
     "is_active": "boolean",
     "is_added_to_ms": "boolean",
     "legal_type": "string",
-    "ogrn": null || "string",
+    "ogrn": "string",
     "beneficiary_data": {
       "name": "string",
       "kpp": "string",
-      "ogrn": null || "string",
-      "is_branch": null || "boolean"
+      "ogrn": "string",
+      "is_branch": "boolean"
     },
     "created_at": "string",
     "updated_at": "string"
@@ -106,7 +106,7 @@
   },
   "last_contract_offer": "object",
   "permission": "boolean",
-  "permission_description": null || "string"
+  "permission_description": "string"
 }
 ```
 
