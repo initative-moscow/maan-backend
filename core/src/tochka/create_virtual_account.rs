@@ -9,5 +9,5 @@ pub struct CreateVirtualAccountRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateVirtualAccountResponse {
-    virtual_account: String,
+    pub virtual_account: String,
 }

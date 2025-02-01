@@ -1,12 +1,7 @@
 use crate::{utils, Signer};
 use anyhow::Result;
-use reqwest::{
-    blocking::{Client, Response},
-    Method,
-};
+use reqwest::{Client, Method, Response};
 use std::collections::HashMap;
-
-// Known endpoint for cyclops: "https://pre.tochka.com/api/v1/cyclops/v2/jsonrpc";
 
 #[derive(Debug, Clone)]
 pub struct MaanClient {
@@ -24,7 +19,7 @@ impl MaanClient {
         }
     }
 
-    pub fn send_request(
+    pub async fn send_request(
         &self,
         signer: &Signer,
         body: impl AsRef<[u8]> + Clone,
@@ -46,10 +41,10 @@ impl MaanClient {
 
         log::debug!("Sending request: {:#?}", request);
 
-        request.send().map_err(Into::into)
+        request.send().await.map_err(Into::into)
     }
 
-    pub fn send_request_tenders(
+    pub async fn send_request_tenders(
         &self,
         signer: &Signer,
         body: impl AsRef<[u8]> + Clone,
@@ -74,10 +69,10 @@ impl MaanClient {
 
         log::debug!("Sending request: {:#?}", request);
 
-        request.send().map_err(Into::into)
+        request.send().await.map_err(Into::into)
     }
 
-    pub fn upload_document_beneficiary(
+    pub async fn upload_document_beneficiary(
         &self,
         signer: &Signer,
         b64_document: String,
@@ -113,10 +108,10 @@ impl MaanClient {
 
         log::debug!("Sending request: {:#?}", request);
 
-        request.send().map_err(Into::into)
+        request.send().await.map_err(Into::into)
     }
 
-    pub fn upload_document_deal(
+    pub async fn upload_document_deal(
         &self,
         signer: &Signer,
         b64_document: String,
@@ -154,20 +149,6 @@ impl MaanClient {
 
         log::debug!("Sending request: {:#?}", request);
 
-        request.send().map_err(Into::into)
+        request.send().await.map_err(Into::into)
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{collections::HashMap, f32::consts::LOG10_2};
-
-    use super::*;
-    use serde::Deserialize;
-
-    /*
-    Maan:
-    Номинальный счёт: 40702810620000088278
-    БИК: 044525104
-    */
 }
