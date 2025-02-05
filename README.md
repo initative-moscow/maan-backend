@@ -201,3 +201,51 @@ Returns id of the created project (actually, virtual accound id).
     }
 }
 ```
+
+### 8. Upload Document Beneficiary
+**Endpoint:** `/upload_document_beneficiary`
+**Method:** `POST`
+**Description:** Uploads a document for a beneficiary.
+
+**Request JSON:**
+```json
+{
+  "b64_document": "string",
+  "beneficiary_id": "string",
+  "document_number": "string",
+  "document_date": "string",
+  "content_type": "string"
+}
+```
+
+**Response JSON:**
+```json
+{
+  "document_id": "string"
+}
+```
+
+### 8. Get Document
+**Endpoint:** `/get_document`
+**Method:** `GET`
+**Description:**  Retrieves a specific document by ID.
+
+**Request JSON:**
+```json
+{
+  "document_id": "string"
+}
+```
+
+**Response JSON:**
+```json
+{
+  "id": "string",
+  "type": "string",
+  "document_number": "string",
+  "document_date": "string",
+  "success_added": "boolean",
+  "success_added_desc": "string",
+  "deal_id": null || "string"
+}
+```
