@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::create_beneficiary::BeneficiaryData;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetBeneficiaryRequest {
     pub beneficiary_id: String,
 }
