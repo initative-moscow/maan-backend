@@ -27,7 +27,7 @@ pub struct ListDealsRequestFilters {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ListDealsReponse {
+pub struct ListDealsResponse {
     pub deals: Vec<ListDealsResponseDeal>,
     // TODO
     pub meta: serde_json::Value,

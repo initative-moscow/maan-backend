@@ -21,7 +21,7 @@ use maan_core::tochka::{
     get_virtual_account::{GetVirtualAccountRequest, GetVirtualAccountResponseIO},
     identification_payment::{IdentificationPaymentRequest, IdentificationPaymentResponse},
     list_beneficiary::{ListBeneficiaryRequest, ListBeneficiaryResponse},
-    list_deals::{ListDealsReponse, ListDealsRequest},
+    list_deals::{ListDealsResponse, ListDealsRequest},
     list_payments::{ListPaymentsRequest, ListPaymentsResponse},
     list_virtual_account::{ListVirtualAccountRequest, ListVirtualAccountResponse},
     sbp_qrcode::{GenerateSbpQrCodeRequest, GenerateSbpQrCodeResponseIO},
@@ -420,13 +420,13 @@ async fn create_charity_project(
         .await
         .context("failed sending the create_virtual_account request from new_charity_project")
         .map_err(anyhow::Error::from)?;
-    let json_resp = resp
+    let resp_json = resp
         .json::<TochkaApiResponse<CreateVirtualAccountResponse>>()
         .await
         .context("failed decoding the create_virtual_account response for new_charity_project")
         .map_err(anyhow::Error::from)?;
 
-    match json_resp.payload {
+    match resp_json.payload {
         TochkaApiResponsePayload::Result { result } => {
             let NewCharityProjectRequest {
                 beneficiary_id,
@@ -574,12 +574,12 @@ async fn get_charity_project(
                 .map_err(anyhow::Error::from)?;
             log::debug!("Get virtual account response - {resp_json:#?}");
 
-            let resp_json =
+            let resp =
                 serde_json::from_value::<TochkaApiResponse<GetVirtualAccountResponseIO>>(resp_json)
                     .context("failed decoding response to `GetVirtualAccountResponseIO`")
                     .map_err(anyhow::Error::from)?;
 
-            if resp_json.payload.is_ok() {
+            if resp.payload.is_ok() {
                 log::warn!(
                     "Project with id {project_id} not found in maan db, but found in Tochka db"
                 );
@@ -588,6 +588,227 @@ async fn get_charity_project(
             // TODO handle that properly?
             Ok(HttpResponse::InternalServerError()
                 .json("Project with the same name already exists"))
+        }
+    }
+}
+
+#[post("/create_deal")]
+async fn create_deal(
+    data: web::Data<AppData>,
+    create_deal_req: web::Json<CreateDealRequest>,
+) -> Result<impl Responder, AnyhowResponseError> {
+    let params = serde_json::to_value(&create_deal_req.0).map_err(anyhow::Error::from)?;
+    let req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": maan_core::utils::new_uuid_v4().to_string(),
+        "method": "create_deal",
+        "params": params,
+    });
+
+    log::debug!("Sending request {req:#?}");
+
+    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let resp = data
+        .maan_client
+        .send_request(&data.signer, req_bytes)
+        .await
+        .context("failed to send create_deal req")
+        .map_err(anyhow::Error::from)?;
+
+    let resp_json = resp
+        .json::<TochkaApiResponse<CreateDealResponse>>()
+        .await
+        .context("failed to decode response to `CreateDealResponse`")?;
+
+    match resp_json.payload {
+        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+        TochkaApiResponsePayload::Error { error } => {
+            Ok(HttpResponse::InternalServerError().json(error))
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UploadDocumentDealRequest {
+    b64_document: String,
+    beneficiary_id: String,
+    deal_id: String,
+    document_number: String,
+    document_date: String,
+    content_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UploadDocumentDealResponse {
+    document_id: String,
+}
+
+#[post("/upload_document_deal")]
+async fn upload_document_deal(
+    data: web::Data<AppData>,
+    upload_document_deal_req: web::Json<UploadDocumentDealRequest>,
+) -> Result<impl Responder, AnyhowResponseError> {
+    let UploadDocumentDealRequest {
+        b64_document,
+        beneficiary_id,
+        deal_id,
+        document_number,
+        document_date,
+        content_type,
+    } = upload_document_deal_req.0;
+
+    // TODO [sab] check deal exists or test that tochka API will
+    // always return error when deal doesn't exist
+
+    let resp = data
+        .maan_client
+        .upload_document_deal(
+            &data.signer,
+            b64_document,
+            beneficiary_id,
+            deal_id,
+            document_number,
+            document_date,
+            content_type,
+        )
+        .await
+        .context("failed to send upload_document_deal request")?;
+
+    let resp_json = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(anyhow::Error::from)
+        .context("failed to decode upload_document_deal response")?;
+
+    log::debug!("Upload document deal response - {resp_json:#?}");
+
+    let resp = serde_json::from_value::<UploadDocumentDealResponse>(resp_json)
+        .map_err(anyhow::Error::from)
+        .context("failed to decode response to `UploadDocumentDealResponse`")?;
+
+    Ok(HttpResponse::Ok().json(resp))
+}
+
+#[post("/update_deal")]
+async fn update_deal(
+    data: web::Data<AppData>,
+    update_deal_req: web::Json<UpdateDealRequest>,
+) -> Result<impl Responder, AnyhowResponseError> {
+    let params = serde_json::to_value(&update_deal_req.0).map_err(anyhow::Error::from)?;
+    let req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": maan_core::utils::new_uuid_v4().to_string(),
+        "method": "update_deal",
+        "params": params,
+    });
+
+    log::debug!("Sending request {req:#?}");
+
+    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let resp = data
+        .maan_client
+        .send_request(&data.signer, req_bytes)
+        .await
+        .context("failed to send update_deal request")?;
+
+    let resp_json = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(anyhow::Error::from)
+        .context("failed to decode response")?;
+
+    log::debug!("Update deal response - {resp_json:#?}");
+
+    let resp = serde_json::from_value::<TochkaApiResponse<UpdateDealResponse>>(resp_json)
+        .map_err(anyhow::Error::from)
+        .context("failed to decode response to `UpdateDealResponse`")?;
+
+    match resp.payload {
+        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+        TochkaApiResponsePayload::Error { error } => {
+            Ok(HttpResponse::InternalServerError().json(error))
+        }
+    }
+}
+
+#[get("/list_deals")]
+async fn list_deals(
+    data: web::Data<AppData>,
+    list_deals_req: web::Json<ListDealsRequest>,
+) -> Result<impl Responder, AnyhowResponseError> {
+    let params = serde_json::to_value(&list_deals_req.0).map_err(anyhow::Error::from)?;
+    let req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": maan_core::utils::new_uuid_v4().to_string(),
+        "method": "list_deals",
+        "params": params,
+    });
+
+    log::debug!("Sending request {req:#?}");
+
+    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let resp = data.maan_client
+        .send_request(&data.signer, req_bytes)
+        .await
+        .context("failed to send list_deals")?;
+
+    let resp_json = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(anyhow::Error::from)
+        .context("failed to decode response")?;
+    
+    log::debug!("List deals info {resp_json:#?}");
+
+    let resp = serde_json::from_value::<TochkaApiResponse<ListDealsResponse>>(resp_json)
+        .map_err(anyhow::Error::from)
+        .context("failed to decode response to `ListDealsResponse`")?;
+
+    match resp.payload {
+        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+        TochkaApiResponsePayload::Error { error } => {
+            Ok(HttpResponse::InternalServerError().json(error))
+        }
+    }
+}
+
+#[get("/get_deal")]
+async fn get_deal(
+    data: web::Data<AppData>,
+    get_deal_req: web::Json<GetDealRequest>,
+) -> Result<impl Responder, AnyhowResponseError> {
+    let params = serde_json::to_value(&get_deal_req.0).map_err(anyhow::Error::from)?;
+    let req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": maan_core::utils::new_uuid_v4().to_string(),
+        "method": "get_deal",
+        "params": params,
+    });
+
+    log::debug!("Sending request {req:#?}");
+
+    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let resp = data.maan_client
+        .send_request(&data.signer, req_bytes)
+        .await
+        .context("failed to send get_deal request")?;
+
+    let resp_json = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(anyhow::Error::from)
+        .context("failed to decode response")?;
+
+    log::debug!("Deal info response: {resp_json:#?}");
+
+    let resp = serde_json::from_value::<TochkaApiResponse<GetDealResponse>>(resp_json)
+        .map_err(anyhow::Error::from)
+        .context("failed to decode response to `GetDealResponse`")?;
+
+    match resp.payload {
+        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+        TochkaApiResponsePayload::Error { error } => {
+            Ok(HttpResponse::InternalServerError().json(error))
         }
     }
 }
@@ -900,203 +1121,6 @@ async fn get_charity_project(
 //     }
 // }
 
-// #[post("/create_deal")]
-// async fn create_deal(
-//     data: web::Data<AppData>,
-//     create_deal_req: web::Json<CreateDealRequest>,
-// ) -> Result<impl Responder, AnyhowResponseError> {
-//     let params = serde_json::to_value(&create_deal_req.0).map_err(anyhow::Error::from)?;
-//     let req = serde_json::json!({
-//         "jsonrpc": "2.0",
-//         "id": maan_core::utils::new_uuid_v4().to_string(),
-//         "method": "create_deal",
-//         "params": params,
-//     });
-//     log::debug!("Sending request {req:#?}");
-//     let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-//     let res = web::block(move || {
-//         data.maan_client
-//             .send_request(&data.signer, bytes)
-//             .unwrap()
-//             .json::<TochkaApiResponse<CreateDealResponse>>()
-//     })
-//     .await
-//     .expect("web::block failed")
-//     .map_err(anyhow::Error::from)?;
-
-//     match res.payload {
-//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-//         TochkaApiResponsePayload::Error { error } => {
-//             Ok(HttpResponse::InternalServerError().json(error))
-//         }
-//     }
-// }
-
-// #[post("/update_deal")]
-// async fn update_deal(
-//     data: web::Data<AppData>,
-//     update_deal_req: web::Json<UpdateDealRequest>,
-// ) -> Result<impl Responder, AnyhowResponseError> {
-//     let params = serde_json::to_value(&update_deal_req.0).map_err(anyhow::Error::from)?;
-//     let req = serde_json::json!({
-//         "jsonrpc": "2.0",
-//         "id": maan_core::utils::new_uuid_v4().to_string(),
-//         "method": "update_deal",
-//         "params": params,
-//     });
-//     log::debug!("Sending request {req:#?}");
-//     let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-//     let res = web::block(move || {
-//         let resp = data.maan_client.send_request(&data.signer, bytes).unwrap();
-
-//         let resp_json = resp
-//             .json::<serde_json::Value>()
-//             .map_err(anyhow::Error::from)?;
-//         log::debug!("Update deal resp - {resp_json:#?}");
-
-//         serde_json::from_value::<TochkaApiResponse<UpdateDealResponse>>(resp_json)
-//             .map_err(anyhow::Error::from)
-//     })
-//     .await
-//     .expect("web::block failed")
-//     .map_err(anyhow::Error::from)?;
-
-//     match res.payload {
-//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-//         TochkaApiResponsePayload::Error { error } => {
-//             Ok(HttpResponse::InternalServerError().json(error))
-//         }
-//     }
-// }
-
-// #[derive(Debug, Serialize, Deserialize)]
-// struct UploadDocumentDealRequest {
-//     b64_document: String,
-//     beneficiary_id: String,
-//     deal_id: String,
-//     document_number: String,
-//     document_date: String,
-//     content_type: String,
-// }
-
-// #[derive(Debug, Serialize, Deserialize)]
-// struct UploadDocumentDealResponse {
-//     document_id: String,
-// }
-
-// #[post("/upload_document_deal")]
-// async fn upload_document_deal(
-//     data: web::Data<AppData>,
-//     upload_document_deal_req: web::Json<UploadDocumentDealRequest>,
-// ) -> Result<impl Responder, AnyhowResponseError> {
-//     let UploadDocumentDealRequest {
-//         b64_document,
-//         beneficiary_id,
-//         deal_id,
-//         document_number,
-//         document_date,
-//         content_type,
-//     } = upload_document_deal_req.0;
-//     let res = web::block(move || {
-//         let resp = data
-//             .maan_client
-//             .upload_document_deal(
-//                 &data.signer,
-//                 b64_document,
-//                 beneficiary_id,
-//                 deal_id,
-//                 document_number,
-//                 document_date,
-//                 content_type,
-//             )
-//             .unwrap();
-//         let resp_json = resp.json::<serde_json::Value>()?;
-//         log::debug!("Upload document deal resp - {resp_json:#?}");
-
-//         serde_json::from_value::<UploadDocumentDealResponse>(resp_json).map_err(anyhow::Error::from)
-//     })
-//     .await
-//     .unwrap()
-//     .map_err(anyhow::Error::from)?;
-
-//     Ok(HttpResponse::Ok().json(res))
-// }
-
-// // TODO FIX IT!
-// #[get("/get_deal")]
-// async fn get_deal(
-//     data: web::Data<AppData>,
-//     get_deal_req: web::Json<GetDealRequest>,
-// ) -> Result<impl Responder, AnyhowResponseError> {
-//     let params = serde_json::to_value(&get_deal_req.0).map_err(anyhow::Error::from)?;
-//     let req = serde_json::json!({
-//         "jsonrpc": "2.0",
-//         "id": maan_core::utils::new_uuid_v4().to_string(),
-//         "method": "get_deal",
-//         "params": params,
-//     });
-//     log::debug!("Sending request {req:#?}");
-//     let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-//     let res = web::block(move || {
-//         let resp = data.maan_client.send_request(&data.signer, bytes).unwrap();
-
-//         let resp_json = resp
-//             .json::<serde_json::Value>()
-//             .map_err(anyhow::Error::from)?;
-//         log::debug!("Deal info {resp_json:#?}");
-
-//         serde_json::from_value::<TochkaApiResponse<GetDealResponse>>(resp_json)
-//             .map_err(anyhow::Error::from)
-//     })
-//     .await
-//     .expect("web::block failed")
-//     .map_err(anyhow::Error::from)?;
-
-//     match res.payload {
-//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-//         TochkaApiResponsePayload::Error { error } => {
-//             Ok(HttpResponse::InternalServerError().json(error))
-//         }
-//     }
-// }
-
-// #[get("/list_deals")]
-// async fn list_deals(
-//     data: web::Data<AppData>,
-//     list_deals_req: web::Json<ListDealsRequest>,
-// ) -> Result<impl Responder, AnyhowResponseError> {
-//     let params = serde_json::to_value(&list_deals_req.0).map_err(anyhow::Error::from)?;
-//     let req = serde_json::json!({
-//         "jsonrpc": "2.0",
-//         "id": maan_core::utils::new_uuid_v4().to_string(),
-//         "method": "list_deals",
-//         "params": params,
-//     });
-//     log::debug!("Sending request {req:#?}");
-//     let bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-//     let res = web::block(move || {
-//         let resp = data.maan_client.send_request(&data.signer, bytes).unwrap();
-
-//         let resp_json = resp
-//             .json::<serde_json::Value>()
-//             .map_err(anyhow::Error::from)?;
-//         log::debug!("List deals info {resp_json:#?}");
-
-//         serde_json::from_value::<TochkaApiResponse<ListDealsReponse>>(resp_json)
-//             .map_err(anyhow::Error::from)
-//     })
-//     .await
-//     .expect("web::block failed")
-//     .map_err(anyhow::Error::from)?;
-
-//     match res.payload {
-//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-//         TochkaApiResponsePayload::Error { error } => {
-//             Ok(HttpResponse::InternalServerError().json(error))
-//         }
-//     }
-// }
-
 // #[post("/execute_deal")]
 // async fn execute_deal(
 //     data: web::Data<AppData>,
@@ -1165,6 +1189,11 @@ async fn main() -> anyhow::Result<()> {
             .service(get_charity_project)
             .service(upload_document_beneficiary)
             .service(get_document)
+            .service(create_deal)
+            .service(upload_document_deal)
+            .service(update_deal)
+            .service(list_deals)
+            .service(get_deal)
         // .service(generate_sbp_qrcode)
         // .service(list_payments)
         // .service(upload_document_beneficiary)
@@ -1216,9 +1245,9 @@ mod tests {
         test, Error,
     };
     use anyhow::Context;
-    use maan_core::tochka::{
-        create_beneficiary::BeneficiaryData, list_beneficiary::ListBeneficiaryFilters, TochkaError,
-    };
+    use maan_core::{tochka::{
+        create_beneficiary::BeneficiaryData, create_deal::DealRecipient, identification_payment::PaymentOwner, list_beneficiary::ListBeneficiaryFilters, TochkaError
+    }, utils};
     use serde::de::DeserializeOwned;
     use std::{any, env, future::Future, pin::Pin};
 
@@ -1747,7 +1776,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_upload_document_beneficiary() -> anyhow::Result<()> {
+    async fn test_document_beneficiary() -> anyhow::Result<()> {
         let _ = env_logger::Builder::from_default_env()
             .format_module_path(false)
             .format_level(true)
@@ -1883,5 +1912,201 @@ mod tests {
         assert!(succes_added);
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_document_deal() -> anyhow::Result<()> {
+        let _ = env_logger::Builder::from_default_env()
+            .format_module_path(false)
+            .format_level(true)
+            .try_init();
+    
+        // Create test service which can send requests
+        let test_service = MaanTestService::new()?;
+    
+        // Create a beneficiary request
+        let beneficiary_data = BeneficiaryData {
+            name: "ООО \"Петруня\"".to_string(),
+            kpp: "667101001".to_string(),
+            ogrn: None,
+            is_branch: None,
+        };
+        let req_body = CreateBeneficiaryUlRequest {
+            inn: generate_random_inn_j(),
+            nominal_account_code: "40702810620000088278".to_string(),
+            nominal_account_bic: "044525104".to_string(),
+            beneficiary_data: beneficiary_data.clone(),
+        };
+        let resp = test_service
+            .send_req::<CreateBeneficiaryResponse>(&req_body, "/create_beneficiary_ul")
+            .await;
+    
+        // Check response
+        let beneficiary_id = match resp {
+            MaanWebTestResponse::Error(tochka_error) => {
+                panic!("Failed to create beneficiary. Got error: {tochka_error:#?}");
+            }
+            MaanWebTestResponse::Ok(v) => {
+                let CreateBeneficiaryResponse::Beneficiary { id, .. } = v;
+                id
+            }
+        };
+
+        // Create a couple of charity projects
+        let req_proj_1 = NewCharityProjectRequest {
+            beneficiary_id: beneficiary_id.clone(),
+            name: "Project 1".to_string(),
+            description: "Project 1 is meant for testing".to_string(),
+        };
+        let resp = test_service
+            .send_req::<NewCharityProjectResponse>(req_proj_1.clone(), "/create_charity_project")
+            .await;
+        let project_1_id = resp
+            .ok()
+            .expect("internal error: failed to create charity project 1")
+            .id
+            .clone();
+    
+        // Create a deal
+        let create_deal_req = CreateDealRequest {
+            amount: 1000.0,
+            ext_key: utils::new_uuid_v4().to_string(),
+            payers: vec![
+                PaymentOwner { virtual_account: project_1_id, amount: 1000 }
+            ],
+            recipients: vec![
+                DealRecipient::PaymentContract { 
+                    number: 1, 
+                    amount: 1000.0, 
+                    purpose_nds: None, 
+                    account: "40702810238030000904".to_string(), 
+                    bank_code: "046577964".to_string(), 
+                    name: "ООО \"Петруня\"".to_string(),
+                    inn: "6671217676".to_string(), 
+                    kpp: Some("667101001".to_string()), 
+                    document_number: Some("42".to_string()), 
+                    purpose: Some(format!("test_document_{}, без НДС", now())), 
+                    code_purpose: None, 
+                    identifier: beneficiary_id
+                }
+            ],
+        };
+        let resp = test_service
+            .send_req::<CreateDealResponse>(&create_deal_req, "/create_deal")
+            .await;
+    
+        // Check response
+        let deal_id = match resp {
+            MaanWebTestResponse::Error(tochka_error) => {
+                panic!("Failed to create deal. Got error: {tochka_error:#?}");
+            }
+            MaanWebTestResponse::Ok(v) => v.deal_id,
+        };
+    
+        // Upload document for deal
+        let pdf_content = r#"%PDF-1.4
+            1 0 obj
+            << /Type /Catalog /Pages 2 0 R >>
+            endobj
+            2 0 obj
+            << /Type /Pages /Kids [3 0 R] /Count 1 >>
+            endobj
+            3 0 obj
+            << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>
+            endobj
+            4 0 obj
+            << /Length 44 >>
+            stream
+            BT
+            /F1 24 Tf
+            100 700 Td
+            (Test PDF Document) Tj
+            ET
+            endstream
+            endobj
+            5 0 obj
+            << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+            endobj
+            xref
+            0 6
+            0000000000 65535 f 
+            0000000010 00000 n 
+            0000000053 00000 n 
+            0000000100 00000 n 
+            0000000173 00000 n 
+            0000000321 00000 n 
+            trailer
+            << /Size 6 /Root 1 0 R >>
+            startxref
+            377
+            %%EOF
+            "#;
+        let req = UploadDocumentDealRequest {
+            b64_document: base64::encode(pdf_content),
+            beneficiary_id: beneficiary_id.clone(),
+            deal_id: deal_id.clone(),
+            document_number: "12345".to_string(),
+            document_date: "2023-10-01".to_string(),
+            content_type: "application/pdf".to_string(),
+        };
+        // let resp = test_service
+        //     .send_req::<UploadDocumentDealResponse>(&req, "/upload_document_deal")
+        //     .await;
+    
+        // // Check response
+        // let document_id = match resp {
+        //     MaanWebTestResponse::Error(tochka_error) => {
+        //         panic!("Failed to upload document. Got error: {tochka_error:#?}");
+        //     }
+        //     MaanWebTestResponse::Ok(resp) => resp.document_id,
+        // };
+    
+        // // Get the document
+        // let req = GetDocumentRequest { document_id };
+        // let resp = test_service
+        //     .send_req::<GetDocumentResponse>(&req, "/get_document")
+        //     .await;
+        // assert!(resp.is_ok());
+    
+        // let success_added = resp
+        //     .ok()
+        //     .map(|d| d.success_added)
+        //     .expect("failed to get document");
+        // assert!(success_added);
+    
+        // // Update the deal
+        // let update_deal_req = UpdateDealRequest {
+        //     deal_id: deal_id.clone(),
+        //     amount: 2000,
+        //     description: "Updated deal".to_string(),
+        // };
+        // let resp = test_service
+        //     .send_req::<UpdateDealResponse>(&update_deal_req, "/update_deal")
+        //     .await;
+        // assert!(resp.is_ok());
+    
+        // // Get the updated deal
+        // let req = GetDealRequest {
+        //     deal_id: deal_id.clone(),
+        // };
+        // let resp = test_service
+        //     .send_req::<GetDealResponse>(&req, "/get_deal")
+        //     .await;
+        // assert!(resp.is_ok());
+    
+        // let deal = resp.ok().expect("failed to get deal");
+        // assert_eq!(deal.amount, 2000);
+        // assert_eq!(deal.description, "Updated deal");
+    
+        Ok(())
+    }
+
+    fn now() -> u64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_secs()
     }
 }
