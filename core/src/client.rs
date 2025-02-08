@@ -7,7 +7,7 @@ use std::collections::HashMap;
 pub struct MaanClient {
     sign_system: String,
     sign_thumbprint: String,
-    endpoint: String,
+    pub endpoint: String,
 }
 
 impl MaanClient {
@@ -17,6 +17,10 @@ impl MaanClient {
             sign_thumbprint,
             endpoint,
         }
+    }
+
+    pub fn is_testing_env(&self) -> bool {
+        self.endpoint.contains("pre.tochka.com")
     }
 
     pub async fn send_request(

@@ -21,6 +21,11 @@ pub trait Store: Send + Sync {
         project: CharityProject,
     ) -> Result<(), Error>;
     async fn get_charity_project(&self, id: &str) -> Result<Option<CharityProject>, Error>;
+    async fn increase_collected_by(
+        &self,
+        charity_id: &str,
+        amount: u32,
+    ) -> Result<(), Error>;
     async fn get_beneficiary_charity_projects(
         &self,
         id: &str,
@@ -36,6 +41,16 @@ pub trait Store: Send + Sync {
         beneficiary_id: &str,
         document_id: &str,
     ) -> Result<Option<String>, Error>;
+    async fn store_donation_data(
+        &self,
+        qr_code_id: String,
+        project_id: String,
+        amount: u32,
+    ) -> Result<(), Error>;
+    async fn get_donation_data(
+        &self,
+        qr_code_id: &str,
+    ) -> Result<Option<(String, u32)>, Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -50,6 +65,7 @@ impl InMemoryStore {
             charity_projects: BTreeMap::new(),
             beneficiary_projects: BTreeMap::new(),
             beneficiary_documents: BTreeMap::new(),
+            donation_data: BTreeMap::new(),
         };
 
         Self {
@@ -85,6 +101,10 @@ impl Store for InMemoryStore {
             .lock()
             .await
             .store_charity_project(beneficiary_id, project)
+    }
+
+    async fn increase_collected_by(&self, charity_id: &str, amount: u32) -> Result<(), Error> {
+        self.inner.lock().await.increase_collected_by(charity_id, amount)
     }
 
     async fn get_charity_project(&self, id: &str) -> Result<Option<CharityProject>, Error> {
@@ -137,6 +157,20 @@ impl Store for InMemoryStore {
             .await
             .get_beneficiary_document(beneficiary_id, document_id)
     }
+
+    async fn store_donation_data(
+        &self,
+        qr_code_id: String,
+        project_id: String,
+        amount: u32,
+    ) -> Result<(), Error> {
+        self.inner.lock().await.donation_data.insert(qr_code_id, (project_id, amount));
+        Ok(())
+    }
+
+    async fn get_donation_data(&self, qr_code_id: &str) -> Result<Option<(String, u32)>, Error> {
+        Ok(self.inner.lock().await.donation_data.get(qr_code_id).cloned())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -145,6 +179,7 @@ struct InMemoryStoreInner {
     beneficiary_documents: BTreeMap<String, Vec<(String, String)>>,
     charity_projects: BTreeMap<String, CharityProject>,
     beneficiary_projects: BTreeMap<String, Vec<String>>,
+    donation_data: BTreeMap<String, (String, u32)>,
 }
 
 impl InMemoryStoreInner {
@@ -196,6 +231,16 @@ impl InMemoryStoreInner {
                 "Charity project with id {id} already exists",
             ))
         }
+    }
+
+    fn increase_collected_by(&mut self, charity_id: &str, amount: u32) -> Result<(), Error> {
+        let project = self
+            .charity_projects
+            .get_mut(charity_id)
+            .ok_or_else(|| anyhow::anyhow!("Charity project with id {charity_id} not found"))?;
+        project.collected += amount;
+
+        Ok(())
     }
 
     fn store_beneficiary_document(

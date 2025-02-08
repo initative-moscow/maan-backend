@@ -6,7 +6,7 @@ pub struct IdentificationPaymentRequest {
     pub owners: Vec<PaymentOwner>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentOwner {
     pub virtual_account: String,
     pub amount: u32,
