@@ -1,6 +1,6 @@
 use anyhow::Error;
 use async_trait::async_trait;
-use maan_core::tochka::create_beneficiary::BeneficiaryData;
+use maan_core::create_beneficiary::BeneficiaryData;
 use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -21,11 +21,7 @@ pub trait Store: Send + Sync {
         project: CharityProject,
     ) -> Result<(), Error>;
     async fn get_charity_project(&self, id: &str) -> Result<Option<CharityProject>, Error>;
-    async fn increase_collected_by(
-        &self,
-        charity_id: &str,
-        amount: u32,
-    ) -> Result<(), Error>;
+    async fn increase_collected_by(&self, charity_id: &str, amount: u32) -> Result<(), Error>;
     async fn get_beneficiary_charity_projects(
         &self,
         id: &str,
@@ -47,10 +43,7 @@ pub trait Store: Send + Sync {
         project_id: String,
         amount: u32,
     ) -> Result<(), Error>;
-    async fn get_donation_data(
-        &self,
-        qr_code_id: &str,
-    ) -> Result<Option<(String, u32)>, Error>;
+    async fn get_donation_data(&self, qr_code_id: &str) -> Result<Option<(String, u32)>, Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -104,7 +97,10 @@ impl Store for InMemoryStore {
     }
 
     async fn increase_collected_by(&self, charity_id: &str, amount: u32) -> Result<(), Error> {
-        self.inner.lock().await.increase_collected_by(charity_id, amount)
+        self.inner
+            .lock()
+            .await
+            .increase_collected_by(charity_id, amount)
     }
 
     async fn get_charity_project(&self, id: &str) -> Result<Option<CharityProject>, Error> {
@@ -164,12 +160,22 @@ impl Store for InMemoryStore {
         project_id: String,
         amount: u32,
     ) -> Result<(), Error> {
-        self.inner.lock().await.donation_data.insert(qr_code_id, (project_id, amount));
+        self.inner
+            .lock()
+            .await
+            .donation_data
+            .insert(qr_code_id, (project_id, amount));
         Ok(())
     }
 
     async fn get_donation_data(&self, qr_code_id: &str) -> Result<Option<(String, u32)>, Error> {
-        Ok(self.inner.lock().await.donation_data.get(qr_code_id).cloned())
+        Ok(self
+            .inner
+            .lock()
+            .await
+            .donation_data
+            .get(qr_code_id)
+            .cloned())
     }
 }
 
@@ -222,7 +228,7 @@ impl InMemoryStoreInner {
         if self.charity_projects.insert(id.clone(), project).is_none() {
             self.beneficiary_projects
                 .entry(beneficiary_id)
-                .or_insert(vec![])
+                .or_default()
                 .push(id);
 
             Ok(())
@@ -251,7 +257,7 @@ impl InMemoryStoreInner {
     ) -> Result<(), Error> {
         self.beneficiary_documents
             .entry(beneficiary_id)
-            .or_insert(vec![])
+            .or_default()
             .push((document_id, b64_document));
 
         Ok(())

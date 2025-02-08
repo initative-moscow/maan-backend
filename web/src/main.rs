@@ -9,67 +9,30 @@ use anyhow::Context;
 use clap::Parser;
 use db::{InMemoryStore, Store};
 use error::AnyhowResponseError;
-use maan_core::tochka::{
-    create_beneficiary::{CreateBeneficiaryResponse, CreateBeneficiaryUlRequest},
-    create_deal::{CreateDealRequest, CreateDealResponse},
-    create_virtual_account::{CreateVirtualAccountRequest, CreateVirtualAccountResponse},
-    execute_deal::{ExecuteDealRequest, ExecuteDealResponse},
-    get_beneficiary::{GetBeneficiaryRequest, GetBeneficiaryResponse},
-    get_deal::{GetDealRequest, GetDealResponse},
-    get_document::{GetDocumentRequest, GetDocumentResponse, GetDocumentResponseIO},
-    get_payment::{GetPaymentRequest, GetPaymentResponseIO},
-    get_virtual_account::{GetVirtualAccountRequest, GetVirtualAccountResponseIO},
-    identification_payment::{IdentificationPaymentRequest, IdentificationPaymentResponse, PaymentOwner},
-    list_beneficiary::{ListBeneficiaryRequest, ListBeneficiaryResponse},
-    list_deals::{ListDealsRequest, ListDealsResponse},
-    list_payments::{ListPaymentsFilters, ListPaymentsRequest, ListPaymentsResponse},
-    list_virtual_account::{ListVirtualAccountRequest, ListVirtualAccountResponse},
-    sbp_qrcode::{GenerateSbpQrCodeRequest, GenerateSbpQrCodeResponseIO},
-    update_deal::{UpdateDealRequest, UpdateDealResponse},
-    TochkaApiResponse, TochkaApiResponsePayload,
-};
-use maan_core::{MaanClient, Signer};
+use maan_core::{tochka_io::*, RsaSigner, TochkaApiResponsePayload, TochkaCyclopsClient};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, fs, path::PathBuf, sync::Arc};
+use std::{fmt::Debug, path::PathBuf};
 use tokio::sync::Mutex;
 
 struct AppData {
     store: Mutex<Box<dyn Store>>,
-    maan_client: MaanClient,
-    signer: Signer,
+    tochka_client: TochkaCyclopsClient<RsaSigner>,
 }
 
 // TODO input is just inn and beneficiary data
 #[post("/create_beneficiary_ul")]
 async fn create_beneficiary_ul(
     data: web::Data<AppData>,
-    create_beneficiary_req: web::Json<CreateBeneficiaryUlRequest>,
+    create_beneficiary: web::Json<CreateBeneficiaryUlRequest>,
 ) -> Result<impl Responder, AnyhowResponseError> {
-    let beneficiary_data = create_beneficiary_req.0.beneficiary_data.clone();
-    let params = serde_json::to_value(&create_beneficiary_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "create_beneficiary_ul",
-        "params": params,
-    });
-
-    log::debug!("Sending request {req:#?}");
-
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    let web::Json(create_beneficiary) = create_beneficiary;
+    let beneficiary_data = create_beneficiary.beneficiary_data.clone();
     let resp = data
-        .maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed sending the create_beneficiary_ul request")
-        .map_err(anyhow::Error::from)?;
-    let json_resp = resp
-        .json::<TochkaApiResponse<CreateBeneficiaryResponse>>()
-        .await
-        .context("failed decoding the create_beneficiary_ul response")
-        .map_err(anyhow::Error::from)?;
+        .tochka_client
+        .create_beneficiary_ul(create_beneficiary)
+        .await?;
 
-    match json_resp.payload {
+    match resp.payload {
         TochkaApiResponsePayload::Result { result } => {
             let CreateBeneficiaryResponse::Beneficiary { id, .. } = &result;
             data.store
@@ -89,262 +52,262 @@ async fn create_beneficiary_ul(
 }
 
 async fn check_added_to_ms(data: web::Data<AppData>, beneficiary_id: String) {
-    let AppData {
-        store,
-        maan_client,
-        signer,
-    } = data.get_ref();
-    let req = GetBeneficiaryRequest {
-        beneficiary_id: beneficiary_id.clone(),
-    };
-    let params = match serde_json::to_value(&req) {
-        Ok(params) => params,
-        Err(e) => {
-            log::error!("Failed to serialize get_beneficiary request: {e}");
-            return;
-        }
-    };
+    todo!()
+    // let AppData {
+    //     store,
+    //     maan_client,
+    //     signer,
+    // } = data.get_ref();
+    // let req = GetBeneficiaryRequest {
+    //     beneficiary_id: beneficiary_id.clone(),
+    // };
+    // let params = match serde_json::to_value(&req) {
+    //     Ok(params) => params,
+    //     Err(e) => {
+    //         log::error!("Failed to serialize get_beneficiary request: {e}");
+    //         return;
+    //     }
+    // };
 
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "get_beneficiary",
-        "params": params,
-    });
+    // let req = serde_json::json!({
+    //     "jsonrpc": "2.0",
+    //     "id": maan_core::utils::new_uuid_v4().to_string(),
+    //     "method": "get_beneficiary",
+    //     "params": params,
+    // });
 
-    log::debug!("Sending request {req:#?}");
+    // log::debug!("Sending request {req:#?}");
 
-    loop {
-        let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-        let resp = match maan_client.send_request(&signer, req_bytes).await {
-            Ok(resp) => resp,
-            Err(e) => {
-                log::error!("Failed to send get_beneficiary request: {e}");
-                return;
-            }
-        };
-        let json_resp = match resp
-            .json::<TochkaApiResponse<GetBeneficiaryResponse>>()
-            .await
-        {
-            Ok(json_resp) => json_resp,
-            Err(e) => {
-                log::error!("Failed to decode get_beneficiary response: {e}");
-                return;
-            }
-        };
+    // loop {
+    //     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+    //     let resp = match maan_client.send_request(&signer, req_bytes).await {
+    //         Ok(resp) => resp,
+    //         Err(e) => {
+    //             log::error!("Failed to send get_beneficiary request: {e}");
+    //             return;
+    //         }
+    //     };
+    //     let json_resp = match resp
+    //         .json::<TochkaApiResponse<GetBeneficiaryResponse>>()
+    //         .await
+    //     {
+    //         Ok(json_resp) => json_resp,
+    //         Err(e) => {
+    //             log::error!("Failed to decode get_beneficiary response: {e}");
+    //             return;
+    //         }
+    //     };
 
-        match json_resp.payload {
-            TochkaApiResponsePayload::Result { result } if result.beneficiary.is_added_to_ms => {
-                let res = store
-                    .lock()
-                    .await
-                    .set_added_to_ms(beneficiary_id.clone())
-                    .await;
+    //     match json_resp.payload {
+    //         TochkaApiResponsePayload::Result { result } if result.beneficiary.is_added_to_ms => {
+    //             let res = store
+    //                 .lock()
+    //                 .await
+    //                 .set_added_to_ms(beneficiary_id.clone())
+    //                 .await;
 
-                if let Err(e) = res {
-                    // TODO must be handled properly
-                    log::error!("Failed to set added_to_ms for beneficiary {beneficiary_id}: {e}");
-                }
+    //             if let Err(e) = res {
+    //                 // TODO must be handled properly
+    //                 log::error!("Failed to set added_to_ms for beneficiary {beneficiary_id}: {e}");
+    //             }
 
-                return;
-            }
-            TochkaApiResponsePayload::Error { error } => {
-                log::error!("Error response from get_beneficiary: {error:#?}");
+    //             return;
+    //         }
+    //         TochkaApiResponsePayload::Error { error } => {
+    //             log::error!("Error response from get_beneficiary: {error:#?}");
 
-                return;
-            }
-            _ => continue,
-        }
-    }
+    //             return;
+    //         }
+    //         _ => continue,
+    //     }
+    // }
 }
 
-// TODO [IMPORTANT] implement get_/list_ or_update logic for list_\get_beneficiary
-#[get("/list_beneficiary")]
-async fn list_beneficiary(
-    data: web::Data<AppData>,
-    list_beneficiary_req: web::Json<ListBeneficiaryRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let params = serde_json::to_value(&list_beneficiary_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "list_beneficiary",
-        "params": params,
-    });
+// // TODO [IMPORTANT] implement get_/list_ or_update logic for list_\get_beneficiary
+// #[get("/list_beneficiary")]
+// async fn list_beneficiary(
+//     data: web::Data<AppData>,
+//     list_beneficiary_req: web::Json<ListBeneficiaryRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let params = serde_json::to_value(&list_beneficiary_req.0).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "list_beneficiary",
+//         "params": params,
+//     });
 
-    log::debug!("Sending request {req:#?}");
+//     log::debug!("Sending request {req:#?}");
 
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data
-        .maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed sending the list_beneficiary request")
-        .map_err(anyhow::Error::from)?;
-    let json_resp = resp
-        .json::<TochkaApiResponse<ListBeneficiaryResponse>>()
-        .await
-        .context("failed decoding the list_beneficiary response")
-        .map_err(anyhow::Error::from)?;
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data
+//         .maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed sending the list_beneficiary request")
+//         .map_err(anyhow::Error::from)?;
+//     let json_resp = resp
+//         .json::<TochkaApiResponse<ListBeneficiaryResponse>>()
+//         .await
+//         .context("failed decoding the list_beneficiary response")
+//         .map_err(anyhow::Error::from)?;
 
-    match json_resp.payload {
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
+//     match json_resp.payload {
+//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
 
-#[get("/get_beneficiary")]
-async fn get_beneficiary(
-    data: web::Data<AppData>,
-    get_beneficiary_req: web::Json<GetBeneficiaryRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let params = serde_json::to_value(&get_beneficiary_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "get_beneficiary",
-        "params": params,
-    });
+// #[get("/get_beneficiary")]
+// async fn get_beneficiary(
+//     data: web::Data<AppData>,
+//     get_beneficiary_req: web::Json<GetBeneficiaryRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let params = serde_json::to_value(&get_beneficiary_req.0).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "get_beneficiary",
+//         "params": params,
+//     });
 
-    log::debug!("Sending request {req:#?}");
+//     log::debug!("Sending request {req:#?}");
 
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data
-        .maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed sending the get_beneficiary request")?;
-    let resp_json = resp
-        .json::<serde_json::Value>()
-        .await
-        .context("failed decoding the get_beneficiary response to `serde_json::Value`")
-        .map_err(anyhow::Error::from)?;
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data
+//         .maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed sending the get_beneficiary request")?;
+//     let resp_json = resp
+//         .json::<serde_json::Value>()
+//         .await
+//         .context("failed decoding the get_beneficiary response to `serde_json::Value`")
+//         .map_err(anyhow::Error::from)?;
 
-    log::debug!("Get beneficiary raw - response {resp_json:#?}");
+//     log::debug!("Get beneficiary raw - response {resp_json:#?}");
 
-    let resp_json = serde_json::from_value::<TochkaApiResponse<GetBeneficiaryResponse>>(resp_json)
-        .context("failed decoding the get_beneficiary response into `GetBeneficiaryResponse`")
-        .map_err(anyhow::Error::from)?;
+//     let resp_json = serde_json::from_value::<TochkaApiResponse<GetBeneficiaryResponse>>(resp_json)
+//         .context("failed decoding the get_beneficiary response into `GetBeneficiaryResponse`")
+//         .map_err(anyhow::Error::from)?;
 
-    match resp_json.payload {
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
+//     match resp_json.payload {
+//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
 
-/*
-PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPG5vdGU+Cjx0bz5Ub3ZlIOmbu+e0hSDQmtCw0LrQvtC5LdGC0L4g0LrQuNGA0LjQu9C70LjRh9C10YHQutC40Lkg0YLQtdC60YHRgjwvdG8+Cjxmcm9tPkphbmk8L2Zyb20+CjxoZWFkaW5nPlJlbWluZGVyPC9oZWFkaW5nPgo8Ym9keT5Eb24ndCBmb3JnZXQgbWUgdGhpcyB3ZWVrZW5kITwvYm9keT4KPC9ub3RlPiI=
-*/
+// /*
+// PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPG5vdGU+Cjx0bz5Ub3ZlIOmbu+e0hSDQmtCw0LrQvtC5LdGC0L4g0LrQuNGA0LjQu9C70LjRh9C10YHQutC40Lkg0YLQtdC60YHRgjwvdG8+Cjxmcm9tPkphbmk8L2Zyb20+CjxoZWFkaW5nPlJlbWluZGVyPC9oZWFkaW5nPgo8Ym9keT5Eb24ndCBmb3JnZXQgbWUgdGhpcyB3ZWVrZW5kITwvYm9keT4KPC9ub3RlPiI=
+// */
+// #[derive(Debug, Serialize, Deserialize)]
+// struct UploadDocumentBeneficiaryRequest {
+//     b64_document: String,
+//     beneficiary_id: String,
+//     document_number: String,
+//     document_date: String,
+//     content_type: String,
+// }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct UploadDocumentBeneficiaryRequest {
-    b64_document: String,
-    beneficiary_id: String,
-    document_number: String,
-    document_date: String,
-    content_type: String,
-}
+// #[derive(Debug, Serialize, Deserialize)]
+// struct UploadDocumentBeneficiaryResponse {
+//     document_id: String,
+// }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct UploadDocumentBeneficiaryResponse {
-    document_id: String,
-}
+// #[post("/upload_document_beneficiary")]
+// async fn upload_document_beneficiary(
+//     data: web::Data<AppData>,
+//     upload_document_req: web::Json<UploadDocumentBeneficiaryRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let UploadDocumentBeneficiaryRequest {
+//         b64_document,
+//         beneficiary_id,
+//         document_number,
+//         document_date,
+//         content_type,
+//     } = upload_document_req.0;
 
-#[post("/upload_document_beneficiary")]
-async fn upload_document_beneficiary(
-    data: web::Data<AppData>,
-    upload_document_req: web::Json<UploadDocumentBeneficiaryRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let UploadDocumentBeneficiaryRequest {
-        b64_document,
-        beneficiary_id,
-        document_number,
-        document_date,
-        content_type,
-    } = upload_document_req.0;
+//     // TODO - test isolated, that it returns a new document id for the same request data
+//     let resp = data
+//         .maan_client
+//         .upload_document_beneficiary(
+//             &data.signer,
+//             b64_document.clone(),
+//             beneficiary_id.clone(),
+//             document_number,
+//             document_date,
+//             content_type,
+//         )
+//         .await
+//         .context("failed sending the upload_document request")?;
 
-    // TODO - test isolated, that it returns a new document id for the same request data
-    let resp = data
-        .maan_client
-        .upload_document_beneficiary(
-            &data.signer,
-            b64_document.clone(),
-            beneficiary_id.clone(),
-            document_number,
-            document_date,
-            content_type,
-        )
-        .await
-        .context("failed sending the upload_document request")?;
+//     let resp_json = resp
+//         .json::<serde_json::Value>()
+//         .await
+//         .context("failed decoding the `upload_document` response to the `serde_json::Value`")?;
 
-    let resp_json = resp
-        .json::<serde_json::Value>()
-        .await
-        .context("failed decoding the `upload_document` response to the `serde_json::Value`")?;
+//     log::debug!("Upload document beneficiary response - {resp_json:#?}");
 
-    log::debug!("Upload document beneficiary response - {resp_json:#?}");
+//     // TODO error type here differs from Tochka wrappers
+//     let resp_json = serde_json::from_value::<UploadDocumentBeneficiaryResponse>(resp_json)
+//         .map_err(anyhow::Error::from)
+//         .context(
+//             "failed decoding `upload_document` response into `UploadDocumentBeneficiaryResponse`",
+//         )?;
 
-    // TODO error type here differs from Tochka wrappers
-    let resp_json = serde_json::from_value::<UploadDocumentBeneficiaryResponse>(resp_json)
-        .map_err(anyhow::Error::from)
-        .context(
-            "failed decoding `upload_document` response into `UploadDocumentBeneficiaryResponse`",
-        )?;
+//     data.store
+//         .lock()
+//         .await
+//         .store_beneficiary_document(
+//             beneficiary_id,
+//             (resp_json.document_id.clone(), b64_document),
+//         )
+//         .await
+//         .context("failed to store beneficiary document")?;
 
-    data.store
-        .lock()
-        .await
-        .store_beneficiary_document(
-            beneficiary_id,
-            (resp_json.document_id.clone(), b64_document),
-        )
-        .await
-        .context("failed to store beneficiary document")?;
+//     Ok(HttpResponse::Ok().json(resp_json))
+// }
 
-    Ok(HttpResponse::Ok().json(resp_json))
-}
+// #[get("/get_document")]
+// async fn get_document(
+//     data: web::Data<AppData>,
+//     get_document_req: web::Json<GetDocumentRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let params = serde_json::to_value(&get_document_req.0).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "get_document",
+//         "params": params,
+//     });
 
-#[get("/get_document")]
-async fn get_document(
-    data: web::Data<AppData>,
-    get_document_req: web::Json<GetDocumentRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let params = serde_json::to_value(&get_document_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "get_document",
-        "params": params,
-    });
+//     log::debug!("Sending request {req:#?}");
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
 
-    log::debug!("Sending request {req:#?}");
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data
+//         .maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed to send the get_document request")?;
+//     let resp_json = resp
+//         .json::<TochkaApiResponse<GetDocumentResponseIO>>()
+//         .await
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode the get_document response to `GetDocumentResponseIO`")?;
 
-    let resp = data
-        .maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed to send the get_document request")?;
-    let resp_json = resp
-        .json::<TochkaApiResponse<GetDocumentResponseIO>>()
-        .await
-        .map_err(anyhow::Error::from)
-        .context("failed to decode the get_document response to `GetDocumentResponseIO`")?;
-
-    match resp_json.payload {
-        TochkaApiResponsePayload::Result { result } => {
-            Ok(HttpResponse::Ok().json(result.into_inner()))
-        }
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
+//     match resp_json.payload {
+//         TochkaApiResponsePayload::Result { result } => {
+//             Ok(HttpResponse::Ok().json(result.into_inner()))
+//         }
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 struct CharityProject {
@@ -356,681 +319,680 @@ struct CharityProject {
     collected: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct NewCharityProjectRequest {
-    beneficiary_id: String,
-    name: String,
-    // TODO should be limited string
-    description: String,
-    cap: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct NewCharityProjectResponse {
-    id: String,
-}
-
-#[post("/create_charity_project")]
-async fn create_charity_project(
-    data: web::Data<AppData>,
-    charity_project_req: web::Json<NewCharityProjectRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    // TODO change error
-
-    // Check unique name
-    let maybe_projects = data
-        .store
-        .lock()
-        .await
-        .get_beneficiary_charity_projects(&charity_project_req.beneficiary_id)
-        .await?;
-    if let Some(projects) = maybe_projects {
-        for project_id in projects {
-            let Some(project) = data
-                .store
-                .lock()
-                .await
-                .get_charity_project(&project_id)
-                .await?
-            else {
-                continue;
-            };
-
-            if project.name == charity_project_req.name {
-                return Ok(HttpResponse::InternalServerError()
-                    .json("Project with the same name already exists"));
-            }
-        }
-    }
-
-    let params = CreateVirtualAccountRequest {
-        beneficiary_id: charity_project_req.beneficiary_id.clone(),
-        virtual_account_type: None,
-    };
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "create_virtual_account",
-        "params": params,
-    });
-
-    log::debug!("Sending request {req:#?}");
-
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data
-        .maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed sending the create_virtual_account request from new_charity_project")
-        .map_err(anyhow::Error::from)?;
-    let resp_json = resp
-        .json::<TochkaApiResponse<CreateVirtualAccountResponse>>()
-        .await
-        .context("failed decoding the create_virtual_account response for new_charity_project")
-        .map_err(anyhow::Error::from)?;
-
-    match resp_json.payload {
-        TochkaApiResponsePayload::Result { result } => {
-            let NewCharityProjectRequest {
-                beneficiary_id,
-                name,
-                description,
-                cap,
-            } = charity_project_req.0;
-            let charity_project = CharityProject {
-                id: result.virtual_account.clone(),
-                name,
-                description,
-                cap,
-                collected: 0,
-            };
-            data.store
-                .lock()
-                .await
-                .store_charity_project(beneficiary_id, charity_project)
-                .await
-                .context("failed to store charity project to db")?;
-
-            Ok(HttpResponse::Ok().json(NewCharityProjectResponse {
-                id: result.virtual_account,
-            }))
-        }
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ListAllCharityProjectsResponse {
-    projects: Vec<CharityProject>,
-}
-
-#[get("/list_all_projects")]
-async fn list_all_projects(
-    data: web::Data<AppData>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let projects = data
-        .store
-        .lock()
-        .await
-        .get_all_charity_projects()
-        .await
-        .context("failed to get all charity projects from db")?;
-
-    Ok(HttpResponse::Ok().json(ListAllCharityProjectsResponse { projects }))
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ListCharityProjectsRequest {
-    beneficiary_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ListCharityProjectsResponse {
-    projects: Vec<CharityProject>,
-}
-
-// TODO [IMPORTANT] test case when DB lost beneficiary ids
-#[get("/list_beneficiary_projects")]
-async fn list_beneficiary_projects(
-    data: web::Data<AppData>,
-    list_charity_projects_req: web::Json<ListCharityProjectsRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let project_ids = data
-        .store
-        .lock()
-        .await
-        .get_beneficiary_charity_projects(&list_charity_projects_req.beneficiary_id)
-        .await
-        .context("failed to get charity projects from db")?
-        .unwrap_or_default();
-
-    let mut projects = Vec::with_capacity(project_ids.len());
-    for id in project_ids {
-        let maybe_project = data
-            .store
-            .lock()
-            .await
-            .get_charity_project(&id)
-            .await
-            .context("failed to get charity project from db")?;
-
-        match maybe_project {
-            Some(project) => projects.push(project),
-            None => log::error!("Project with id {} not found in db, but must be", id),
-        }
-    }
-
-    Ok(HttpResponse::Ok().json(ListCharityProjectsResponse { projects }))
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct GetCharityProjectRequest {
-    project_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct GetCharityProjectResponse {
-    project: CharityProject,
-}
-
-#[get("/get_charity_project")]
-async fn get_charity_project(
-    data: web::Data<AppData>,
-    get_charity_project_req: web::Json<GetCharityProjectRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let GetCharityProjectRequest { project_id } = get_charity_project_req.0;
-    let maybe_project = data
-        .store
-        .lock()
-        .await
-        .get_charity_project(&project_id)
-        .await
-        .context("failed to get charity project from db")?;
-
-    match maybe_project {
-        Some(project) => Ok(HttpResponse::Ok().json(GetCharityProjectResponse { project })),
-        None => {
-            let req = GetVirtualAccountRequest {
-                virtual_account: project_id.clone(),
-            };
-            let params = serde_json::to_value(&req).map_err(anyhow::Error::from)?;
-            let req = serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": maan_core::utils::new_uuid_v4().to_string(),
-                "method": "get_virtual_account",
-                "params": params,
-            });
-
-            log::debug!("Sending request {req:#?}");
-
-            let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-            let resp = data
-                .maan_client
-                .send_request(&data.signer, req_bytes)
-                .await
-                .context("failed sending the get_charity_project request")?;
-            let resp_json = resp
-                .json::<serde_json::Value>()
-                .await
-                .context(
-                    "failed decoding the get_virtual_account response to raw serde_json::Value",
-                )
-                .map_err(anyhow::Error::from)?;
-            log::debug!("Get virtual account response - {resp_json:#?}");
-
-            let resp =
-                serde_json::from_value::<TochkaApiResponse<GetVirtualAccountResponseIO>>(resp_json)
-                    .context("failed decoding response to `GetVirtualAccountResponseIO`")
-                    .map_err(anyhow::Error::from)?;
-
-            if resp.payload.is_ok() {
-                log::warn!(
-                    "Project with id {project_id} not found in maan db, but found in Tochka db"
-                );
-            }
-
-            // TODO handle that properly?
-            Ok(HttpResponse::InternalServerError()
-                .json("Project with the same name already exists"))
-        }
-    }
-}
-
-// TODO ADD TO DB
-#[post("/create_deal")]
-async fn create_deal(
-    data: web::Data<AppData>,
-    create_deal_req: web::Json<CreateDealRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let params = serde_json::to_value(&create_deal_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "create_deal",
-        "params": params,
-    });
-
-    log::debug!("Sending request {req:#?}");
-
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data
-        .maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed to send create_deal req")
-        .map_err(anyhow::Error::from)?;
-
-    let resp_json = resp
-        .json::<TochkaApiResponse<CreateDealResponse>>()
-        .await
-        .context("failed to decode response to `CreateDealResponse`")?;
-
-    match resp_json.payload {
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct UploadDocumentDealRequest {
-    b64_document: String,
-    beneficiary_id: String,
-    deal_id: String,
-    document_number: String,
-    document_date: String,
-    content_type: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct UploadDocumentDealResponse {
-    document_id: String,
-}
-
-// TODO ADD TO DB DATA
-#[post("/upload_document_deal")]
-async fn upload_document_deal(
-    data: web::Data<AppData>,
-    upload_document_deal_req: web::Json<UploadDocumentDealRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let UploadDocumentDealRequest {
-        b64_document,
-        beneficiary_id,
-        deal_id,
-        document_number,
-        document_date,
-        content_type,
-    } = upload_document_deal_req.0;
-
-    // TODO [sab] check deal exists or test that tochka API will
-    // always return error when deal doesn't exist
-
-    let resp = data
-        .maan_client
-        .upload_document_deal(
-            &data.signer,
-            b64_document,
-            beneficiary_id,
-            deal_id,
-            document_number,
-            document_date,
-            content_type,
-        )
-        .await
-        .context("failed to send upload_document_deal request")?;
-
-    let resp_json = resp
-        .json::<serde_json::Value>()
-        .await
-        .map_err(anyhow::Error::from)
-        .context("failed to decode upload_document_deal response")?;
-
-    log::debug!("Upload document deal response - {resp_json:#?}");
-
-    let resp = serde_json::from_value::<UploadDocumentDealResponse>(resp_json)
-        .map_err(anyhow::Error::from)
-        .context("failed to decode response to `UploadDocumentDealResponse`")?;
-
-    Ok(HttpResponse::Ok().json(resp))
-}
-
-// TODO ADD TO DB DATA
-#[post("/update_deal")]
-async fn update_deal(
-    data: web::Data<AppData>,
-    update_deal_req: web::Json<UpdateDealRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let params = serde_json::to_value(&update_deal_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "update_deal",
-        "params": params,
-    });
-
-    log::debug!("Sending request {req:#?}");
-
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data
-        .maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed to send update_deal request")?;
-
-    let resp_json = resp
-        .json::<serde_json::Value>()
-        .await
-        .map_err(anyhow::Error::from)
-        .context("failed to decode response")?;
-
-    log::debug!("Update deal response - {resp_json:#?}");
-
-    let resp = serde_json::from_value::<TochkaApiResponse<UpdateDealResponse>>(resp_json)
-        .map_err(anyhow::Error::from)
-        .context("failed to decode response to `UpdateDealResponse`")?;
-
-    match resp.payload {
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
-
-// TODO ADD TO DB DATA
-#[get("/list_deals")]
-async fn list_deals(
-    data: web::Data<AppData>,
-    list_deals_req: web::Json<ListDealsRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let params = serde_json::to_value(&list_deals_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "list_deals",
-        "params": params,
-    });
-
-    log::debug!("Sending request {req:#?}");
-
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data.maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed to send list_deals")?;
-
-    let resp_json = resp
-        .json::<serde_json::Value>()
-        .await
-        .map_err(anyhow::Error::from)
-        .context("failed to decode response")?;
-    
-    log::debug!("List deals info {resp_json:#?}");
-
-    let resp = serde_json::from_value::<TochkaApiResponse<ListDealsResponse>>(resp_json)
-        .map_err(anyhow::Error::from)
-        .context("failed to decode response to `ListDealsResponse`")?;
-
-    match resp.payload {
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
-
-// TODO ADD TO DB DATA
-#[get("/get_deal")]
-async fn get_deal(
-    data: web::Data<AppData>,
-    get_deal_req: web::Json<GetDealRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let params = serde_json::to_value(&get_deal_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "get_deal",
-        "params": params,
-    });
-
-    log::debug!("Sending request {req:#?}");
-
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data.maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed to send get_deal request")?;
-
-    let resp_json = resp
-        .json::<serde_json::Value>()
-        .await
-        .map_err(anyhow::Error::from)
-        .context("failed to decode response")?;
-
-    log::debug!("Deal info response: {resp_json:#?}");
-
-    let resp = serde_json::from_value::<TochkaApiResponse<GetDealResponse>>(resp_json)
-        .map_err(anyhow::Error::from)
-        .context("failed to decode response to `GetDealResponse`")?;
-
-    match resp.payload {
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct DonateRequest {
-    donator: String,
-    project: String,
-    amount: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct DonateResponse {
-    qr_code: String,
-}
-
-#[post("/donate")]
-async fn donate(
-    data: web::Data<AppData>,
-    json: web::Json<DonateRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let DonateRequest { donator, project, amount } = json.0;
-    // TODO: IS IT TEMPORARY OR REMAINS ALWAYS
-    let generate_sbp_req = GenerateSbpQrCodeRequest {
-        amount: amount,
-        // format!("donation_{project}_{donator}")
-        purpose: "тест".to_string(),
-        // TODO change constants
-        nominal_account_code: "40702810620000088278".to_string(),
-        nominal_account_bic: "044525104".to_string(),
-        height: 400,
-        width: 400,
-    };
-    
-    let params = serde_json::to_value(&generate_sbp_req).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "generate_sbp_qrcode",
-        "params": params,
-    });
-
-    log::debug!("Sending request {req:#?}");
-
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data.maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed to send generate_sbp_qrcode request")?;
-    let resp_json = resp
-        .json::<TochkaApiResponse<GenerateSbpQrCodeResponseIO>>()
-        .await
-        .context("failed to decode response to `GenerateSbpQrCodeResponseIO`")?;
-
-    match resp_json.payload {
-        TochkaApiResponsePayload::Result { result } => {
-            let res = result.into_inner();
-            let id = res.id;
-            data.store
-                .lock()
-                .await
-                .store_donation_data(id.clone(), project, amount)
-                .await?;
-
-            tokio::spawn(identify_payment(data, id.clone()));
-
-            Ok(HttpResponse::Ok().json(DonateResponse { qr_code: id }))
-        },
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-    }
-}
-
-// TODO change for the real env (identify payments)
-async fn identify_payment(data: web::Data<AppData>, qr_code_id: String,) -> anyhow::Result<()> {
-    let raw_req = ListPaymentsRequest {
-        filters: ListPaymentsFilters {
-            c2b_qr_code_id: Some(qr_code_id.clone()),
-            identify: Some(false),
-            incoming: Some(true),
-            payment_type: None,
-            account: None,
-            bic: None,
-        },
-    };
-
-    log::warn!("[SPAWN]: Identify payment request - {raw_req:#?}");
-    loop {
-        // List payments
-        let params = serde_json::to_value(&raw_req).map_err(anyhow::Error::from)?;
-        let req = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": maan_core::utils::new_uuid_v4().to_string(),
-            "method": "list_payments",
-            "params": params,
-        });
-    
-        log::debug!("Sending request {req:#?}");
-    
-        let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-        let resp = data.maan_client
-            .send_request(&data.signer, req_bytes)
-            .await
-            .context("failed to send list_payments request")?;
-        let resp_json = resp
-            .json::<TochkaApiResponse<ListPaymentsResponse>>()
-            .await
-            .context("failed to decode response to `ListPaymentsResponse`")?;
-
-        match resp_json.payload {
-            TochkaApiResponsePayload::Result { result } => {
-                let payments = result.payments;
-                if payments.is_empty() {
-                    continue;
-                }
-
-                // Identify if found
-                let payment_id = payments[0].clone();
-                let (project_id, amount) = data.store
-                    .lock()
-                    .await
-                    .get_donation_data(&qr_code_id)
-                    .await?
-                    .expect("called only for existing payments");
-
-                let raw_req = IdentificationPaymentRequest {
-                    payment_id,
-                    owners: vec![
-                        PaymentOwner {
-                            amount,
-                            virtual_account: project_id.clone(),
-                        }
-                    ],
-                };
-                let params = serde_json::to_value(&raw_req).map_err(anyhow::Error::from)?;
-                let req = serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "id": maan_core::utils::new_uuid_v4().to_string(),
-                    "method": "identify_payment",
-                    "params": params,
-                });
-
-                log::debug!("Sending request {req:#?}");
-
-                let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-                let resp = data.maan_client
-                    .send_request(&data.signer, req_bytes)
-                    .await
-                    .context("failed to send identify_payment request")?;
-                let resp_json = resp
-                    .json::<serde_json::Value>()
-                    .await
-                    .context("failed to decode response")?;
-
-                log::debug!("Identify payment response - {resp_json:#?}");
-
-                let resp_json = serde_json::from_value::<TochkaApiResponse<IdentificationPaymentResponse>>(resp_json)
-                    .context("failed to decode response to `IdentificationPaymentResponse`")
-                    .map_err(anyhow::Error::from)?;
-
-                log::debug!("Identify payment response - {resp_json:#?}");
-                if resp_json.payload.is_ok() {
-                    data.store
-                        .lock()
-                        .await
-                        .increase_collected_by(&project_id, amount)
-                        .await?;
-                }
-            },
-            TochkaApiResponsePayload::Error { error } => {
-                log::debug!("{error:#?}");
-                return Ok(())
-            }
-        }
-    }
-}
-
-#[post("/execute_deal")]
-async fn execute_deal(
-    data: web::Data<AppData>,
-    deal_id_req: web::Json<ExecuteDealRequest>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let params = serde_json::to_value(&deal_id_req.0).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "execute_deal",
-        "params": params,
-    });
-
-    log::debug!("Sending request {req:#?}");
-
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp = data.maan_client
-        .send_request(&data.signer, req_bytes)
-        .await
-        .context("failed to send execute_deal request")?;
-    let resp_json = resp
-        .json::<TochkaApiResponse<ExecuteDealResponse>>()
-        .await
-        .context("failed to decode response")?;
-
-    match resp_json.payload {
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-    }
-}
-
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// struct NewCharityProjectRequest {
+//     beneficiary_id: String,
+//     name: String,
+//     // TODO should be limited string
+//     description: String,
+//     cap: u32,
+// }
+
+// #[derive(Debug, Serialize, Deserialize)]
+// struct NewCharityProjectResponse {
+//     id: String,
+// }
+
+// #[post("/create_charity_project")]
+// async fn create_charity_project(
+//     data: web::Data<AppData>,
+//     charity_project_req: web::Json<NewCharityProjectRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     // TODO change error
+
+//     // Check unique name
+//     let maybe_projects = data
+//         .store
+//         .lock()
+//         .await
+//         .get_beneficiary_charity_projects(&charity_project_req.beneficiary_id)
+//         .await?;
+//     if let Some(projects) = maybe_projects {
+//         for project_id in projects {
+//             let Some(project) = data
+//                 .store
+//                 .lock()
+//                 .await
+//                 .get_charity_project(&project_id)
+//                 .await?
+//             else {
+//                 continue;
+//             };
+
+//             if project.name == charity_project_req.name {
+//                 return Ok(HttpResponse::InternalServerError()
+//                     .json("Project with the same name already exists"));
+//             }
+//         }
+//     }
+
+//     let params = CreateVirtualAccountRequest {
+//         beneficiary_id: charity_project_req.beneficiary_id.clone(),
+//         virtual_account_type: None,
+//     };
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "create_virtual_account",
+//         "params": params,
+//     });
+
+//     log::debug!("Sending request {req:#?}");
+
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data
+//         .maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed sending the create_virtual_account request from new_charity_project")
+//         .map_err(anyhow::Error::from)?;
+//     let resp_json = resp
+//         .json::<TochkaApiResponse<CreateVirtualAccountResponse>>()
+//         .await
+//         .context("failed decoding the create_virtual_account response for new_charity_project")
+//         .map_err(anyhow::Error::from)?;
+
+//     match resp_json.payload {
+//         TochkaApiResponsePayload::Result { result } => {
+//             let NewCharityProjectRequest {
+//                 beneficiary_id,
+//                 name,
+//                 description,
+//                 cap,
+//             } = charity_project_req.0;
+//             let charity_project = CharityProject {
+//                 id: result.virtual_account.clone(),
+//                 name,
+//                 description,
+//                 cap,
+//                 collected: 0,
+//             };
+//             data.store
+//                 .lock()
+//                 .await
+//                 .store_charity_project(beneficiary_id, charity_project)
+//                 .await
+//                 .context("failed to store charity project to db")?;
+
+//             Ok(HttpResponse::Ok().json(NewCharityProjectResponse {
+//                 id: result.virtual_account,
+//             }))
+//         }
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// struct ListAllCharityProjectsResponse {
+//     projects: Vec<CharityProject>,
+// }
+
+// #[get("/list_all_projects")]
+// async fn list_all_projects(
+//     data: web::Data<AppData>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let projects = data
+//         .store
+//         .lock()
+//         .await
+//         .get_all_charity_projects()
+//         .await
+//         .context("failed to get all charity projects from db")?;
+
+//     Ok(HttpResponse::Ok().json(ListAllCharityProjectsResponse { projects }))
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// struct ListCharityProjectsRequest {
+//     beneficiary_id: String,
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// struct ListCharityProjectsResponse {
+//     projects: Vec<CharityProject>,
+// }
+
+// // TODO [IMPORTANT] test case when DB lost beneficiary ids
+// #[get("/list_beneficiary_projects")]
+// async fn list_beneficiary_projects(
+//     data: web::Data<AppData>,
+//     list_charity_projects_req: web::Json<ListCharityProjectsRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let project_ids = data
+//         .store
+//         .lock()
+//         .await
+//         .get_beneficiary_charity_projects(&list_charity_projects_req.beneficiary_id)
+//         .await
+//         .context("failed to get charity projects from db")?
+//         .unwrap_or_default();
+
+//     let mut projects = Vec::with_capacity(project_ids.len());
+//     for id in project_ids {
+//         let maybe_project = data
+//             .store
+//             .lock()
+//             .await
+//             .get_charity_project(&id)
+//             .await
+//             .context("failed to get charity project from db")?;
+
+//         match maybe_project {
+//             Some(project) => projects.push(project),
+//             None => log::error!("Project with id {} not found in db, but must be", id),
+//         }
+//     }
+
+//     Ok(HttpResponse::Ok().json(ListCharityProjectsResponse { projects }))
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// struct GetCharityProjectRequest {
+//     project_id: String,
+// }
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// struct GetCharityProjectResponse {
+//     project: CharityProject,
+// }
+
+// #[get("/get_charity_project")]
+// async fn get_charity_project(
+//     data: web::Data<AppData>,
+//     get_charity_project_req: web::Json<GetCharityProjectRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let GetCharityProjectRequest { project_id } = get_charity_project_req.0;
+//     let maybe_project = data
+//         .store
+//         .lock()
+//         .await
+//         .get_charity_project(&project_id)
+//         .await
+//         .context("failed to get charity project from db")?;
+
+//     match maybe_project {
+//         Some(project) => Ok(HttpResponse::Ok().json(GetCharityProjectResponse { project })),
+//         None => {
+//             let req = GetVirtualAccountRequest {
+//                 virtual_account: project_id.clone(),
+//             };
+//             let params = serde_json::to_value(&req).map_err(anyhow::Error::from)?;
+//             let req = serde_json::json!({
+//                 "jsonrpc": "2.0",
+//                 "id": maan_core::utils::new_uuid_v4().to_string(),
+//                 "method": "get_virtual_account",
+//                 "params": params,
+//             });
+
+//             log::debug!("Sending request {req:#?}");
+
+//             let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//             let resp = data
+//                 .maan_client
+//                 .send_request(&data.signer, req_bytes)
+//                 .await
+//                 .context("failed sending the get_charity_project request")?;
+//             let resp_json = resp
+//                 .json::<serde_json::Value>()
+//                 .await
+//                 .context(
+//                     "failed decoding the get_virtual_account response to raw serde_json::Value",
+//                 )
+//                 .map_err(anyhow::Error::from)?;
+//             log::debug!("Get virtual account response - {resp_json:#?}");
+
+//             let resp =
+//                 serde_json::from_value::<TochkaApiResponse<GetVirtualAccountResponseIO>>(resp_json)
+//                     .context("failed decoding response to `GetVirtualAccountResponseIO`")
+//                     .map_err(anyhow::Error::from)?;
+
+//             if resp.payload.is_ok() {
+//                 log::warn!(
+//                     "Project with id {project_id} not found in maan db, but found in Tochka db"
+//                 );
+//             }
+
+//             // TODO handle that properly?
+//             Ok(HttpResponse::InternalServerError()
+//                 .json("Project with the same name already exists"))
+//         }
+//     }
+// }
+
+// // TODO ADD TO DB
+// #[post("/create_deal")]
+// async fn create_deal(
+//     data: web::Data<AppData>,
+//     create_deal_req: web::Json<CreateDealRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let params = serde_json::to_value(&create_deal_req.0).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "create_deal",
+//         "params": params,
+//     });
+
+//     log::debug!("Sending request {req:#?}");
+
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data
+//         .maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed to send create_deal req")
+//         .map_err(anyhow::Error::from)?;
+
+//     let resp_json = resp
+//         .json::<TochkaApiResponse<CreateDealResponse>>()
+//         .await
+//         .context("failed to decode response to `CreateDealResponse`")?;
+
+//     match resp_json.payload {
+//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
+
+// #[derive(Debug, Serialize, Deserialize)]
+// struct UploadDocumentDealRequest {
+//     b64_document: String,
+//     beneficiary_id: String,
+//     deal_id: String,
+//     document_number: String,
+//     document_date: String,
+//     content_type: String,
+// }
+
+// #[derive(Debug, Serialize, Deserialize)]
+// struct UploadDocumentDealResponse {
+//     document_id: String,
+// }
+
+// // TODO ADD TO DB DATA
+// #[post("/upload_document_deal")]
+// async fn upload_document_deal(
+//     data: web::Data<AppData>,
+//     upload_document_deal_req: web::Json<UploadDocumentDealRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let UploadDocumentDealRequest {
+//         b64_document,
+//         beneficiary_id,
+//         deal_id,
+//         document_number,
+//         document_date,
+//         content_type,
+//     } = upload_document_deal_req.0;
+
+//     // TODO [sab] check deal exists or test that tochka API will
+//     // always return error when deal doesn't exist
+
+//     let resp = data
+//         .maan_client
+//         .upload_document_deal(
+//             &data.signer,
+//             b64_document,
+//             beneficiary_id,
+//             deal_id,
+//             document_number,
+//             document_date,
+//             content_type,
+//         )
+//         .await
+//         .context("failed to send upload_document_deal request")?;
+
+//     let resp_json = resp
+//         .json::<serde_json::Value>()
+//         .await
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode upload_document_deal response")?;
+
+//     log::debug!("Upload document deal response - {resp_json:#?}");
+
+//     let resp = serde_json::from_value::<UploadDocumentDealResponse>(resp_json)
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode response to `UploadDocumentDealResponse`")?;
+
+//     Ok(HttpResponse::Ok().json(resp))
+// }
+
+// // TODO ADD TO DB DATA
+// #[post("/update_deal")]
+// async fn update_deal(
+//     data: web::Data<AppData>,
+//     update_deal_req: web::Json<UpdateDealRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let params = serde_json::to_value(&update_deal_req.0).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "update_deal",
+//         "params": params,
+//     });
+
+//     log::debug!("Sending request {req:#?}");
+
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data
+//         .maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed to send update_deal request")?;
+
+//     let resp_json = resp
+//         .json::<serde_json::Value>()
+//         .await
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode response")?;
+
+//     log::debug!("Update deal response - {resp_json:#?}");
+
+//     let resp = serde_json::from_value::<TochkaApiResponse<UpdateDealResponse>>(resp_json)
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode response to `UpdateDealResponse`")?;
+
+//     match resp.payload {
+//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
+
+// // TODO ADD TO DB DATA
+// #[get("/list_deals")]
+// async fn list_deals(
+//     data: web::Data<AppData>,
+//     list_deals_req: web::Json<ListDealsRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let params = serde_json::to_value(&list_deals_req.0).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "list_deals",
+//         "params": params,
+//     });
+
+//     log::debug!("Sending request {req:#?}");
+
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data.maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed to send list_deals")?;
+
+//     let resp_json = resp
+//         .json::<serde_json::Value>()
+//         .await
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode response")?;
+
+//     log::debug!("List deals info {resp_json:#?}");
+
+//     let resp = serde_json::from_value::<TochkaApiResponse<ListDealsResponse>>(resp_json)
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode response to `ListDealsResponse`")?;
+
+//     match resp.payload {
+//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
+
+// // TODO ADD TO DB DATA
+// #[get("/get_deal")]
+// async fn get_deal(
+//     data: web::Data<AppData>,
+//     get_deal_req: web::Json<GetDealRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let params = serde_json::to_value(&get_deal_req.0).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "get_deal",
+//         "params": params,
+//     });
+
+//     log::debug!("Sending request {req:#?}");
+
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data.maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed to send get_deal request")?;
+
+//     let resp_json = resp
+//         .json::<serde_json::Value>()
+//         .await
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode response")?;
+
+//     log::debug!("Deal info response: {resp_json:#?}");
+
+//     let resp = serde_json::from_value::<TochkaApiResponse<GetDealResponse>>(resp_json)
+//         .map_err(anyhow::Error::from)
+//         .context("failed to decode response to `GetDealResponse`")?;
+
+//     match resp.payload {
+//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
+
+// #[derive(Debug, Serialize, Deserialize)]
+// struct DonateRequest {
+//     donator: String,
+//     project: String,
+//     amount: u32,
+// }
+
+// #[derive(Debug, Serialize, Deserialize)]
+// struct DonateResponse {
+//     qr_code: String,
+// }
+
+// #[post("/donate")]
+// async fn donate(
+//     data: web::Data<AppData>,
+//     json: web::Json<DonateRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let DonateRequest { donator, project, amount } = json.0;
+//     // TODO: IS IT TEMPORARY OR REMAINS ALWAYS
+//     let generate_sbp_req = GenerateSbpQrCodeRequest {
+//         amount: amount,
+//         // format!("donation_{project}_{donator}")
+//         purpose: "тест".to_string(),
+//         // TODO change constants
+//         nominal_account_code: "40702810620000088278".to_string(),
+//         nominal_account_bic: "044525104".to_string(),
+//         height: 400,
+//         width: 400,
+//     };
+
+//     let params = serde_json::to_value(&generate_sbp_req).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "generate_sbp_qrcode",
+//         "params": params,
+//     });
+
+//     log::debug!("Sending request {req:#?}");
+
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data.maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed to send generate_sbp_qrcode request")?;
+//     let resp_json = resp
+//         .json::<TochkaApiResponse<GenerateSbpQrCodeResponseIO>>()
+//         .await
+//         .context("failed to decode response to `GenerateSbpQrCodeResponseIO`")?;
+
+//     match resp_json.payload {
+//         TochkaApiResponsePayload::Result { result } => {
+//             let res = result.into_inner();
+//             let id = res.id;
+//             data.store
+//                 .lock()
+//                 .await
+//                 .store_donation_data(id.clone(), project, amount)
+//                 .await?;
+
+//             tokio::spawn(identify_payment(data, id.clone()));
+
+//             Ok(HttpResponse::Ok().json(DonateResponse { qr_code: id }))
+//         },
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//     }
+// }
+
+// // TODO change for the real env (identify payments)
+// async fn identify_payment(data: web::Data<AppData>, qr_code_id: String,) -> anyhow::Result<()> {
+//     let raw_req = ListPaymentsRequest {
+//         filters: ListPaymentsFilters {
+//             c2b_qr_code_id: Some(qr_code_id.clone()),
+//             identify: Some(false),
+//             incoming: Some(true),
+//             payment_type: None,
+//             account: None,
+//             bic: None,
+//         },
+//     };
+
+//     log::warn!("[SPAWN]: Identify payment request - {raw_req:#?}");
+//     loop {
+//         // List payments
+//         let params = serde_json::to_value(&raw_req).map_err(anyhow::Error::from)?;
+//         let req = serde_json::json!({
+//             "jsonrpc": "2.0",
+//             "id": maan_core::utils::new_uuid_v4().to_string(),
+//             "method": "list_payments",
+//             "params": params,
+//         });
+
+//         log::debug!("Sending request {req:#?}");
+
+//         let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//         let resp = data.maan_client
+//             .send_request(&data.signer, req_bytes)
+//             .await
+//             .context("failed to send list_payments request")?;
+//         let resp_json = resp
+//             .json::<TochkaApiResponse<ListPaymentsResponse>>()
+//             .await
+//             .context("failed to decode response to `ListPaymentsResponse`")?;
+
+//         match resp_json.payload {
+//             TochkaApiResponsePayload::Result { result } => {
+//                 let payments = result.payments;
+//                 if payments.is_empty() {
+//                     continue;
+//                 }
+
+//                 // Identify if found
+//                 let payment_id = payments[0].clone();
+//                 let (project_id, amount) = data.store
+//                     .lock()
+//                     .await
+//                     .get_donation_data(&qr_code_id)
+//                     .await?
+//                     .expect("called only for existing payments");
+
+//                 let raw_req = IdentificationPaymentRequest {
+//                     payment_id,
+//                     owners: vec![
+//                         PaymentOwner {
+//                             amount,
+//                             virtual_account: project_id.clone(),
+//                         }
+//                     ],
+//                 };
+//                 let params = serde_json::to_value(&raw_req).map_err(anyhow::Error::from)?;
+//                 let req = serde_json::json!({
+//                     "jsonrpc": "2.0",
+//                     "id": maan_core::utils::new_uuid_v4().to_string(),
+//                     "method": "identify_payment",
+//                     "params": params,
+//                 });
+
+//                 log::debug!("Sending request {req:#?}");
+
+//                 let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//                 let resp = data.maan_client
+//                     .send_request(&data.signer, req_bytes)
+//                     .await
+//                     .context("failed to send identify_payment request")?;
+//                 let resp_json = resp
+//                     .json::<serde_json::Value>()
+//                     .await
+//                     .context("failed to decode response")?;
+
+//                 log::debug!("Identify payment response - {resp_json:#?}");
+
+//                 let resp_json = serde_json::from_value::<TochkaApiResponse<IdentificationPaymentResponse>>(resp_json)
+//                     .context("failed to decode response to `IdentificationPaymentResponse`")
+//                     .map_err(anyhow::Error::from)?;
+
+//                 log::debug!("Identify payment response - {resp_json:#?}");
+//                 if resp_json.payload.is_ok() {
+//                     data.store
+//                         .lock()
+//                         .await
+//                         .increase_collected_by(&project_id, amount)
+//                         .await?;
+//                 }
+//             },
+//             TochkaApiResponsePayload::Error { error } => {
+//                 log::debug!("{error:#?}");
+//                 return Ok(())
+//             }
+//         }
+//     }
+// }
+
+// #[post("/execute_deal")]
+// async fn execute_deal(
+//     data: web::Data<AppData>,
+//     deal_id_req: web::Json<ExecuteDealRequest>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let params = serde_json::to_value(&deal_id_req.0).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "execute_deal",
+//         "params": params,
+//     });
+
+//     log::debug!("Sending request {req:#?}");
+
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp = data.maan_client
+//         .send_request(&data.signer, req_bytes)
+//         .await
+//         .context("failed to send execute_deal request")?;
+//     let resp_json = resp
+//         .json::<TochkaApiResponse<ExecuteDealResponse>>()
+//         .await
+//         .context("failed to decode response")?;
+
+//     match resp_json.payload {
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+//     }
+// }
 
 // #[post("/generate_sbp_qrcode")]
 // async fn generate_sbp_qrcode(
@@ -1108,56 +1070,57 @@ async fn execute_deal(
 //     }
 // }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct TestSendQrPaymentRequest {
-    pub amount: u32,
-    pub qrc_type: String,
-    pub qrc_id: String,
-    pub creditor_bank_id: String,
-}
+// #[derive(Debug, Serialize, Deserialize)]
+// struct TestSendQrPaymentRequest {
+//     pub amount: u32,
+//     pub qrc_type: String,
+//     pub qrc_id: String,
+//     pub creditor_bank_id: String,
+// }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct TestSendQrPaymentResponse {
-    pub transaction_id: String,
-}
+// #[derive(Debug, Serialize, Deserialize)]
+// struct TestSendQrPaymentResponse {
+//     pub transaction_id: String,
+// }
 
-#[post("/test_send_qr_payment/{amount}/{qrc_id}")]
-async fn test_send_qr_payment(
-    data: web::Data<AppData>,
-    path: web::Path<(u32, String)>,
-) -> Result<impl Responder, AnyhowResponseError> {
-    let (amount, qrc_id) = path.into_inner();
-    let req = TestSendQrPaymentRequest {
-        amount,
-        qrc_type: "02".to_string(),
-        qrc_id,
-        creditor_bank_id: "100000000284".to_string(),
-    };
-    let params = serde_json::to_value(&req).map_err(anyhow::Error::from)?;
-    let req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": maan_core::utils::new_uuid_v4().to_string(),
-        "method": "send_c2b_credit_transfer_request",
-        "params": params,
-    });
+// #[post("/test_send_qr_payment/{amount}/{qrc_id}")]
+// async fn test_send_qr_payment(
+//     data: web::Data<AppData>,
+//     path: web::Path<(u32, String)>,
+// ) -> Result<impl Responder, AnyhowResponseError> {
+//     let (amount, qrc_id) = path.into_inner();
+//     let req = TestSendQrPaymentRequest {
+//         amount,
+//         qrc_type: "02".to_string(),
+//         qrc_id,
+//         creditor_bank_id: "100000000284".to_string(),
+//     };
+//     let params = serde_json::to_value(&req).map_err(anyhow::Error::from)?;
+//     let req = serde_json::json!({
+//         "jsonrpc": "2.0",
+//         "id": maan_core::utils::new_uuid_v4().to_string(),
+//         "method": "send_c2b_credit_transfer_request",
+//         "params": params,
+//     });
 
-    log::debug!("Sending request {req:#?}");
-    
-    let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
-    let resp_json = data.maan_client
-        .send_request_tenders(&data.signer, req_bytes)
-        .await?
-        .json::<TochkaApiResponse<TestSendQrPaymentResponse>>()
-        .await
-        .map_err(anyhow::Error::from)?;
+//     log::debug!("Sending request {req:#?}");
 
-    match resp_json.payload {
-        TochkaApiResponsePayload::Error { error } => {
-            Ok(HttpResponse::InternalServerError().json(error))
-        }
-        TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
-    }
-}
+//     let req_bytes = serde_json::to_vec(&req).expect("failed to serialize request");
+//     let resp_json = data
+//         .tochka_client
+//         .send_request_tenders(&data.signer, req_bytes)
+//         .await?
+//         .json::<TochkaApiResponse<TestSendQrPaymentResponse>>()
+//         .await
+//         .map_err(anyhow::Error::from)?;
+
+//     match resp_json.payload {
+//         TochkaApiResponsePayload::Error { error } => {
+//             Ok(HttpResponse::InternalServerError().json(error))
+//         }
+//         TochkaApiResponsePayload::Result { result } => Ok(HttpResponse::Ok().json(result)),
+//     }
+// }
 
 // #[get("/list_payments")]
 // async fn list_payments(
@@ -1231,7 +1194,6 @@ async fn test_send_qr_payment(
 //     }
 // }
 
-
 // #[post("/identify_payment")]
 // async fn identify_payment(
 //     data: web::Data<AppData>,
@@ -1276,10 +1238,13 @@ async fn main() -> anyhow::Result<()> {
         .format_level(true)
         .try_init();
 
-    let private_key_string = fs::read_to_string(args.private_key_path)?;
-
-    let signer = Signer::new(private_key_string)?;
-    let maan_client = MaanClient::new(args.sign_system, args.sign_thumbprint, args.endpoint);
+    let signer = RsaSigner::new(args.private_key_path).context("failed to create rsa signer")?;
+    let tochka_client = TochkaCyclopsClient::new(
+        args.sign_system,
+        args.sign_thumbprint,
+        args.endpoint,
+        signer,
+    );
     let store = {
         let store: Box<dyn Store> = Box::new(InMemoryStore::new());
         Mutex::new(store)
@@ -1287,8 +1252,7 @@ async fn main() -> anyhow::Result<()> {
 
     let data = web::Data::new(AppData {
         store,
-        maan_client,
-        signer,
+        tochka_client,
     });
 
     // TODO: for wrong entries - return error
@@ -1296,20 +1260,20 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .app_data(data.clone())
             .service(create_beneficiary_ul)
-            .service(list_beneficiary)
-            .service(get_beneficiary)
-            .service(create_charity_project)
-            .service(list_all_projects)
-            .service(list_beneficiary_projects)
-            .service(get_charity_project)
-            .service(upload_document_beneficiary)
-            .service(get_document)
-            .service(create_deal)
-            .service(upload_document_deal)
-            .service(update_deal)
-            .service(list_deals)
-            .service(get_deal)
-            .service(donate)
+        // .service(list_beneficiary)
+        // .service(get_beneficiary)
+        // .service(create_charity_project)
+        // .service(list_all_projects)
+        // .service(list_beneficiary_projects)
+        // .service(get_charity_project)
+        // .service(upload_document_beneficiary)
+        // .service(get_document)
+        // .service(create_deal)
+        // .service(upload_document_deal)
+        // .service(update_deal)
+        // .service(list_deals)
+        // .service(get_deal)
+        // .service(donate)
         // .service(generate_sbp_qrcode)
         // .service(list_payments)
         // .service(upload_document_beneficiary)
@@ -1337,6 +1301,7 @@ async fn main() -> anyhow::Result<()> {
 #[clap(version = "1.0", about = "maan-backend web-server")]
 struct Args {
     /// Path to the private key for signing requests to the Tochka bank.
+    /// The key should be in the PEM format.
     #[arg(long = "private-key")]
     private_key_path: PathBuf,
 
@@ -1361,14 +1326,19 @@ mod tests {
         test, Error,
     };
     use anyhow::Context;
-    use maan_core::{tochka::{
-        create_beneficiary::BeneficiaryData, create_deal::DealRecipient, identification_payment::PaymentOwner, list_beneficiary::ListBeneficiaryFilters, update_deal::UpdateDealData, TochkaError
-    }, utils};
+    use maan_core::{
+        tochka::{
+            create_beneficiary::BeneficiaryData, create_deal::DealRecipient,
+            identification_payment::PaymentOwner, list_beneficiary::ListBeneficiaryFilters,
+            update_deal::UpdateDealData, TochkaError,
+        },
+        utils,
+    };
     use serde::de::DeserializeOwned;
 
     fn now() -> u64 {
         use std::time::{SystemTime, UNIX_EPOCH};
-        
+
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time went backwards")
@@ -1395,7 +1365,7 @@ mod tests {
                 Signer::new(private_key_string).context("failed to create signer")?
             };
             let maan_client =
-                MaanClient::new(args.sign_system, args.sign_thumbprint, args.endpoint);
+                TochkaCyclopsClient::new(args.sign_system, args.sign_thumbprint, args.endpoint);
             let store = {
                 let store: Box<dyn Store> = Box::new(InMemoryStore::new());
                 Mutex::new(store)
@@ -1403,7 +1373,7 @@ mod tests {
 
             let data = web::Data::new(AppData {
                 store,
-                maan_client,
+                tochka_client: maan_client,
                 signer,
             });
 
@@ -1654,7 +1624,7 @@ mod tests {
             beneficiary_id: beneficiary_id.clone(),
             name: "Project 1".to_string(),
             description: "Project 1 is meant for testing".to_string(),
-            cap: 10_000
+            cap: 10_000,
         };
         let resp = test_service
             .send_req::<NewCharityProjectResponse>(req_proj_1.clone(), "/create_charity_project")
@@ -1873,7 +1843,7 @@ mod tests {
             name: req_proj_2.name.clone(),
             description: req_proj_2.description.clone(),
             cap: 10_000,
-            collected: 0
+            collected: 0,
         };
 
         let req_proj_3 = NewCharityProjectRequest {
@@ -2066,10 +2036,10 @@ mod tests {
             .format_module_path(false)
             .format_level(true)
             .try_init();
-    
+
         // Create test service which can send requests
         let test_service = MaanTestService::new()?;
-    
+
         // Create a beneficiary request
         let beneficiary_data = BeneficiaryData {
             name: "ООО \"Петруня\"".to_string(),
@@ -2086,7 +2056,7 @@ mod tests {
         let resp = test_service
             .send_req::<CreateBeneficiaryResponse>(&req_body, "/create_beneficiary_ul")
             .await;
-    
+
         // Check response
         let beneficiary_id = match resp {
             MaanWebTestResponse::Error(tochka_error) => {
@@ -2103,7 +2073,7 @@ mod tests {
             beneficiary_id: beneficiary_id.clone(),
             name: "Project 1".to_string(),
             description: "Project 1 is meant for testing".to_string(),
-            cap: 10_000
+            cap: 10_000,
         };
         let resp = test_service
             .send_req::<NewCharityProjectResponse>(req_proj_1.clone(), "/create_charity_project")
@@ -2164,35 +2134,34 @@ mod tests {
                 break;
             };
         }
-    
+
         // Create a deal
         let create_deal_req = CreateDealRequest {
             amount: 1000.0,
             ext_key: utils::new_uuid_v4().to_string(),
-            payers: vec![
-                PaymentOwner { virtual_account: project_1_id, amount: 0 }
-            ],
-            recipients: vec![
-                DealRecipient::PaymentContract { 
-                    number: 1, 
-                    amount: 1000.0, 
-                    purpose_nds: None, 
-                    account: "40702810238030000904".to_string(), 
-                    bank_code: "046577964".to_string(), 
-                    name: "ООО \"Петруня\"".to_string(),
-                    inn: "6671217676".to_string(), 
-                    kpp: Some("667101001".to_string()), 
-                    document_number: Some("42".to_string()), 
-                    purpose: Some(format!("test_document_{}, без НДС", now())), 
-                    code_purpose: None, 
-                    identifier: beneficiary_id.clone()
-                }
-            ],
+            payers: vec![PaymentOwner {
+                virtual_account: project_1_id,
+                amount: 0,
+            }],
+            recipients: vec![DealRecipient::PaymentContract {
+                number: 1,
+                amount: 1000.0,
+                purpose_nds: None,
+                account: "40702810238030000904".to_string(),
+                bank_code: "046577964".to_string(),
+                name: "ООО \"Петруня\"".to_string(),
+                inn: "6671217676".to_string(),
+                kpp: Some("667101001".to_string()),
+                document_number: Some("42".to_string()),
+                purpose: Some(format!("test_document_{}, без НДС", now())),
+                code_purpose: None,
+                identifier: beneficiary_id.clone(),
+            }],
         };
         let resp = test_service
             .send_req::<CreateDealResponse>(&create_deal_req, "/create_deal")
             .await;
-    
+
         // Check response
         let deal_id = match resp {
             MaanWebTestResponse::Error(tochka_error) => {
@@ -2200,7 +2169,7 @@ mod tests {
             }
             MaanWebTestResponse::Ok(v) => v.deal_id,
         };
-    
+
         // Upload document for deal
         let pdf_content = r#"%PDF-1.4
             1 0 obj
@@ -2250,7 +2219,7 @@ mod tests {
         let resp = test_service
             .send_req::<UploadDocumentDealResponse>(&req, "/upload_document_deal")
             .await;
-    
+
         // Check response
         let document_id = match resp {
             MaanWebTestResponse::Error(tochka_error) => {
@@ -2258,20 +2227,20 @@ mod tests {
             }
             MaanWebTestResponse::Ok(resp) => resp.document_id,
         };
-    
+
         // Get the document
         let req = GetDocumentRequest { document_id };
         let resp = test_service
             .send_req::<GetDocumentResponse>(&req, "/get_document")
             .await;
         assert!(resp.is_ok());
-    
+
         let success_added = resp
             .ok()
             .map(|d| d.success_added)
             .expect("failed to get document");
         assert!(success_added);
-    
+
         // Update the deal (update amount)
         let update_deal_req = UpdateDealRequest {
             deal_id: deal_id.clone(),
@@ -2279,13 +2248,13 @@ mod tests {
                 amount: 2000.0,
                 payers: create_deal_req.payers.clone(),
                 recipients: create_deal_req.recipients.clone(),
-            }
+            },
         };
         let resp = test_service
             .send_req::<UpdateDealResponse>(&update_deal_req, "/update_deal")
             .await;
         assert!(resp.is_ok());
-    
+
         // Get the updated deal
         let req = GetDealRequest {
             deal_id: deal_id.clone(),
@@ -2294,7 +2263,7 @@ mod tests {
             .send_req::<GetDealResponse>(&req, "/get_deal")
             .await;
         assert!(resp.is_ok());
-    
+
         let deal = resp.ok().expect("failed to get deal");
         assert_eq!(deal.deal.amount, 2000.0);
 
@@ -2311,9 +2280,15 @@ mod tests {
         assert!(resp.is_ok());
 
         let deals = &resp.ok().expect("failed to list deals").deals;
-        let found_deal = &deals.iter().find(|deal| deal.id == deal_id).expect("deal not found");
+        let found_deal = &deals
+            .iter()
+            .find(|deal| deal.id == deal_id)
+            .expect("deal not found");
         assert_eq!(found_deal.amount.expect("requested field"), 2000.0);
-        assert_eq!(found_deal.ext_key.clone().expect("requested field"), create_deal_req.ext_key);
+        assert_eq!(
+            found_deal.ext_key.clone().expect("requested field"),
+            create_deal_req.ext_key
+        );
 
         // Execute deal
         let execute_deal_req = ExecuteDealRequest {
@@ -2346,11 +2321,14 @@ mod tests {
                 break;
             }
 
-            if status.contains("rejected") || status.contains("correction") || status.contains("cancel") {
+            if status.contains("rejected")
+                || status.contains("correction")
+                || status.contains("cancel")
+            {
                 panic!("Deal status reached unexpected state - {status}. Deal: {deal:#?}");
             }
         }
-    
+
         Ok(())
     }
 }
