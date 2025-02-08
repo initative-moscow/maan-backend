@@ -3,6 +3,7 @@
 /*
 TODO:
 1. Introduce blocking API
+2. Introduce a separate Error type
 
 */
 
