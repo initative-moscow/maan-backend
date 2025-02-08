@@ -9,9 +9,9 @@ use anyhow::Context;
 use clap::Parser;
 use db::{InMemoryStore, Store};
 use error::AnyhowResponseError;
-use maan_core::{tochka_io::*, RsaSigner, TochkaApiResponsePayload, TochkaCyclopsClient};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, path::PathBuf};
+use tochka_cyclops::{tochka_io::*, RsaSigner, TochkaApiResponsePayload, TochkaCyclopsClient};
 use tokio::sync::Mutex;
 
 struct AppData {
@@ -1326,15 +1326,8 @@ mod tests {
         test, Error,
     };
     use anyhow::Context;
-    use maan_core::{
-        tochka::{
-            create_beneficiary::BeneficiaryData, create_deal::DealRecipient,
-            identification_payment::PaymentOwner, list_beneficiary::ListBeneficiaryFilters,
-            update_deal::UpdateDealData, TochkaError,
-        },
-        utils,
-    };
     use serde::de::DeserializeOwned;
+    use tochka_cyclops::{tochka_io::*, utils, TochkaError};
 
     fn now() -> u64 {
         use std::time::{SystemTime, UNIX_EPOCH};

@@ -1,7 +1,7 @@
 use anyhow::Error;
 use async_trait::async_trait;
-use maan_core::create_beneficiary::BeneficiaryData;
 use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
+use tochka_cyclops::create_beneficiary::BeneficiaryData;
 use tokio::sync::Mutex;
 
 use crate::CharityProject;
