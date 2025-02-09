@@ -1,5 +1,4 @@
-// TODO:
-// 1. use anyhow for the error
+//! Maan web server
 
 mod db;
 mod error;
@@ -34,7 +33,7 @@ async fn create_beneficiary_ul(
 
     match resp.payload {
         TochkaApiResponsePayload::Result { result } => {
-            let CreateBeneficiaryResponse::Beneficiary { id, .. } = &result;
+            let beneficiary_id = &result.beneficiary.id;
             data.store
                 .lock()
                 .await

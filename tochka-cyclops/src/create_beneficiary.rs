@@ -6,29 +6,37 @@ use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 
 impl<S> TochkaCyclopsClient<S> {
-    /// Create a new beneficiary.
+    /// Create a new beneficiary of UL type.
     pub async fn create_beneficiary_ul(
         &self,
         params: CreateBeneficiaryUlRequest,
-    ) -> AnyhowResult<TochkaApiResponse<CreateBeneficiaryResponse>>
+    ) -> AnyhowResult<TochkaApiResponse<CreateBeneficiaryUlResponse>>
     where
         S: RequestSigner<Vec<u8>>,
         <S as RequestSigner<Vec<u8>>>::Error: StdError + Send + Sync + 'static,
     {
-        self.send_request::<_, CreateBeneficiaryResponse>("create_beneficiary_ul", params)
+        self.send_request::<_, CreateBeneficiaryUlResponse>("create_beneficiary_ul", params)
             .await
     }
 }
 
+/// A response from `create_beneficiary_ul` method.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum CreateBeneficiaryResponse {
-    #[serde(rename = "beneficiary")]
-    Beneficiary {
-        inn: String,
-        nominal_account_code: String,
-        nominal_account_bic: String,
-        id: String,
-    },
+pub struct CreateBeneficiaryUlResponse {
+    pub beneficiary: CreatedUlBeneficiary,
+}
+
+/// A beneficiary received from the `create_beneficiary_ul` method.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CreatedUlBeneficiary {
+    /// Beneficiary's INN number.
+    pub inn: String,
+    /// Nominal account code under which the beneficiary is registered.
+    pub nominal_account_code: String,
+    /// Nominal account bic under which the beneficiary is registered.
+    pub nominal_account_bic: String,
+    /// Beneficiary's ID.
+    pub id: String,
 }
 
 /// Create beneficiary ul request.
