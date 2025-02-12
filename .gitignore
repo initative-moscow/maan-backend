@@ -14,3 +14,5 @@ Cargo.lock
 *.pdb
 
 .env
+.test_config.toml
+.api_test_config.toml
